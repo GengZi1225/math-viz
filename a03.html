@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ε-N 数列极限可视化 · ε 是要求，N 是回应</title>
+<style>
+  :root{
+    --bg:#f4f6fb; --card:#ffffff; --titlebar:#1b2a4a;
+    --point:#0a66f0; --eps:#ff2941; --nline:#00a653;
+    --text:#1a2233; --muted:#6b7280; --line:#e2e8f0;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; justify-content:center; padding:24px 12px;
+  }
+  .app{width:100%; max-width:1060px; background:var(--card); border-radius:16px;
+       box-shadow:0 20px 50px rgba(16,38,84,.12); overflow:hidden;}
+  /* 顶部标题栏 */
+  .titlebar{
+    background:linear-gradient(120deg,#16233f,#2a4986);
+    color:#fff; padding:18px 26px 14px;
+  }
+  .titlebar h1{font-size:21px; font-weight:700; letter-spacing:.5px;}
+  .titlebar h1 em{font-style:normal; color:#ffd23d; font-weight:800;}
+  .titlebar .def{margin-top:8px; font-size:14px; line-height:1.7; color:#dce6fb;
+                 background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.16);
+                 padding:8px 14px; border-radius:9px; display:inline-block;}
+  .titlebar .def b.e{color:#ff8fa0;} .titlebar .def b.N{color:#7ce0ab;} .titlebar .def b.x{color:#7ab8ff;}
+  .titlebar p{font-size:12.5px; opacity:.85; margin-top:6px; color:#c9d6ef;}
+  .titlebar p b.e{color:#ff8fa0;} .titlebar p b.N{color:#7ce0ab;} .titlebar p b.x{color:#7ab8ff;}
+  /* 序列说明行 */
+  .seqbar{
+    display:flex; flex-wrap:wrap; gap:8px 24px; align-items:center;
+    padding:12px 22px; background:#fff; border-bottom:1px solid var(--line); font-size:13.5px;
+  }
+  .seqbar .xn{font-weight:700; color:var(--point); font-size:15px;}
+  .seqbar .item{color:var(--muted);}
+  .seqbar .item b{color:var(--text);}
+  /* 画布区 */
+  .stage{position:relative; background:#fff; padding:6px 20px 0;}
+  canvas{display:block; width:100%; border-radius:10px; background:linear-gradient(180deg,#fdfdfe,#f7f9fc);}
+  .legend{
+    display:flex; gap:18px; flex-wrap:wrap; font-size:12.5px; color:var(--muted);
+    padding:6px 2px 4px; user-select:none;
+  }
+  .legend i{display:inline-block; width:14px; height:14px; border-radius:50%; vertical-align:-2px; margin-right:6px; border:1px solid rgba(0,0,0,.15);}
+  .legend .lg-b i{background:var(--point);}
+  .legend .lg-g i{background:rgba(150,160,180,.35);}
+  .legend .lg-r i{background:rgba(255,41,65,.25); border-radius:3px; border:2px solid var(--eps);}
+  .legend .lg-n i{background:var(--nline); border-radius:3px; border:2px solid var(--nline);}
+  /* 控制面板 */
+  .panel{padding:14px 24px 22px; background:#fbfcff; border-top:1px solid var(--line);}
+  .ctl-row{display:flex; align-items:center; gap:12px; padding:7px 0; flex-wrap:wrap;}
+  .ctl-label{font-size:13.5px; font-weight:700; min-width:120px;}
+  .ctl-label .sym{font-size:17px;}
+  .ctl-label.r{color:var(--eps);} .ctl-label.n{color:var(--nline);}
+  .slider-wrap{flex:1; min-width:220px; display:flex; align-items:center; gap:12px;}
+  input[type=range]{flex:1; height:6px; -webkit-appearance:none; appearance:none; border-radius:3px; outline:none; cursor:pointer;}
+  input[type=range].r{background:linear-gradient(90deg,#ffc2c9,var(--eps));}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
+    border:3px solid #fff; box-shadow:0 1px 5px rgba(0,0,0,.3); cursor:grab;
+  }
+  input[type=range].r::-webkit-slider-thumb{background:var(--eps);}
+  .val{
+    min-width:76px; text-align:center; font-variant-numeric:tabular-nums;
+    font-size:14px; font-weight:700; padding:5px 8px; border-radius:8px; background:#fff;
+    border:1px solid var(--line); color:var(--text);
+  }
+  .val.r{border-color:#ffc2c9; color:var(--eps);}
+  .val.n{border-color:#b9eccf; color:var(--nline);}
+  /* N 结果卡片 */
+  .ncard{
+    flex:1.2; min-width:260px; display:flex; align-items:center; gap:14px;
+    background:#edfdf3; border:1px solid #b9eccf; border-radius:12px; padding:10px 16px;
+  }
+  .ncard .big{font-size:26px; font-weight:800; color:var(--nline); font-variant-numeric:tabular-nums;}
+  .ncard .txt{font-size:13px; color:#0d7a3f; line-height:1.55;}
+  .ncard .txt b{font-size:14px;}
+  /* 状态条 */
+  .status{
+    margin-top:12px; padding:13px 18px; border-radius:12px;
+    font-size:14.5px; line-height:1.6; font-weight:600;
+    background:#f8fafc; border:1px solid var(--line); min-height:58px;
+    transition:background .25s;
+  }
+  .status .ico{font-size:20px; margin-right:4px;}
+  .status.ok{background:#edfdf3; border-color:#b9eccf; color:#0d7a3f;}
+  .status.info{background:#eef3ff; border-color:#c4d6f0; color:#23437d;}
+  .status.bad{background:#fff0f2; border-color:#ffc2c9; color:#d1193b;}
+  .status .sub{display:block; font-size:12px; font-weight:400; opacity:.85; margin-top:3px;}
+  .status.demo{background:#eef3ff; border-color:#c4d6f0; color:#23437d;}
+  .actions{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;}
+  .btn{
+    border:none; padding:11px 22px; border-radius:10px; font-size:14px; font-weight:700;
+    cursor:pointer; background:var(--titlebar); color:#fff; transition:all .2s;
+    box-shadow:0 4px 12px rgba(27,42,74,.25);
+  }
+  .btn:hover{transform:translateY(-1px); box-shadow:0 6px 16px rgba(27,42,74,.32);}
+  .btn.stop{background:#c62b48;}
+  .btn.secondary{background:#fff; color:var(--titlebar); border:1.5px solid #cdd8ee; box-shadow:none;}
+  .btn.secondary:hover{border-color:var(--titlebar);}
+  .notice{
+    font-size:12px; color:var(--muted); margin-top:10px; line-height:1.7;
+    background:#f6f8fd; border-left:3px solid #c4d1ef; padding:8px 12px; border-radius:0 8px 8px 0;
+  }
+  #hoverTip{
+    position:fixed; pointer-events:none; background:rgba(23,32,54,.92); color:#fff;
+    font-size:12px; padding:7px 11px; border-radius:8px; z-index:10; display:none;
+    line-height:1.6; box-shadow:0 6px 18px rgba(0,0,0,.25); white-space:nowrap;
+  }
+  #hoverTip b{color:#7ab8ff;}
+  @media (max-width:640px){
+    .panel{padding:12px 14px;}
+    .titlebar{padding:14px 16px;}
+    .ctl-label{min-width:80px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="titlebar">
+    <h1>ε–N 数列极限可视化 <em>·</em> ε 是要求，N 是回应</h1>
+    <div class="def"><b class="e">∀ε&gt;0</b>，<b class="N">∃ 正整数 N</b>，当 <b class="N">n&gt;N</b> 时，总有 <b class="x">|xₙ − a| &lt; ε</b></div>
+    <p>把"无限接近"翻成逻辑语言：<b class="e">ε = 允许的误差（要求）</b>，<b class="N">N = 找到的分界点（回应）</b>，<b class="x">xₙ = 数列第 n 项</b></p>
+  </div>
+
+  <div class="seqbar">
+    <span class="xn">数列 xₙ = 1 − 1/n</span>
+    <span class="item">前几项：<b>0, 1/2, 2/3, 3/4, 4/5, …</b></span>
+    <span class="item">收敛到 <b>a = 1</b></span>
+  </div>
+
+  <div class="stage">
+    <canvas id="cv"></canvas>
+    <div class="legend">
+      <span class="lg-b"><i></i>达标点（n&gt;N，全在带内）</span>
+      <span class="lg-g"><i></i>待检查点（n≤N，随便乱，没人管）</span>
+      <span class="lg-r"><i></i>ε 带（a−ε, a+ε）</span>
+      <span class="lg-n"><i></i>分界线 N</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ctl-row">
+      <span class="ctl-label r"><span class="sym">ε</span> 允许误差（对数刻度）</span>
+      <div class="slider-wrap">
+        <input type="range" id="eps" class="r" min="0" max="1" step="0.001" value="0.773">
+        <span class="val r" id="epsVal">0.100</span>
+      </div>
+    </div>
+    <div class="ctl-row">
+      <span class="ctl-label n"><span class="sym">N</span> 分界点</span>
+      <div class="ncard">
+        <span class="big" id="nVal">10</span>
+        <span class="txt" id="nDesc">当 n &gt; <b>N</b> 时，|xₙ−a| &lt; ε —— 绿线右边全是达标点</span>
+      </div>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <div class="actions">
+      <button class="btn" id="demoBtn">▶ 自动演示（还原原视频流程）</button>
+      <button class="btn secondary" id="resetBtn">↺ 重置</button>
+    </div>
+    <div class="notice" id="notice"></div>
+  </div>
+</div>
+<div id="hoverTip"></div>
+
+<script>
+"use strict";
+/* ============================================================
+ * ε-N 数列极限定义可视化 —— 复刻自《高等数学可视化 · 数列极限的 ε-N》
+ * 数列 xₙ = 1 − 1/n，收敛于 a = 1。
+ * 拖动 ε：红带变宽/变窄，绿色分界线 N = ⌊1/ε⌋ 随之左右移动。
+ * ============================================================ */
+
+/* ---------- 数学常量 ---------- */
+const A = 1;            // 极限值
+const NMAX = 130;       // 展示的最大项数
+const EPS_LOG_MIN = -2;       // ε=0.01
+const EPS_LOG_MAX = -0.4;     // ε≈0.398
+const xn = n => 1 - 1 / n;    // 数列
+const epsFromSlider = s => Math.pow(10, EPS_LOG_MIN + (EPS_LOG_MAX - EPS_LOG_MIN) * s);
+const sliderFromEps = e => (Math.log10(e) - EPS_LOG_MIN) / (EPS_LOG_MAX - EPS_LOG_MIN);
+
+/* ---------- 辅助 ---------- */
+const $ = id => document.getElementById(id);
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const fmt3 = v => (Math.round(v * 1000) / 1000).toFixed(3);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------- 状态 ---------- */
+const state = {
+  eps: 0.1,
+  demo: null,
+  hover: null        // {n, x, y}
+};
+
+const cv = $("cv");
+const ctx = cv.getContext("2d");
+cv.width = 1040; cv.height = 600;
+
+const P = { l: 70, r: 44, t: 42, b: 52 };
+const eps = () => state.eps;
+const N = () => Math.floor(1 / eps());   // n>N 即满足 1/n < ε
+
+/* ---------- 坐标映射 ---------- */
+const XR = [0, NMAX];
+const YR = [-0.05, 1.3];
+function x2p(n) { return P.l + (n - XR[0]) / (XR[1] - XR[0]) * (cv.width - P.l - P.r); }
+function y2p(v) { return P.t + (YR[1] - v) / (YR[1] - YR[0]) * (cv.height - P.t - P.b); }
+function px2n(px) { return XR[0] + (px - P.l) / (cv.width - P.l - P.r) * (XR[1] - XR[0]); }
+
+/* ---------- 绘制 ---------- */
+function niceStep(raw) {
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const m = raw / p;
+  return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p;
+}
+function tick(v) {
+  const a = Math.abs(v);
+  return a < 10 && a >= 0.09 ? (Math.round(v * 100) / 100).toString()
+       : Math.round(v * 10) / 10 + "";
+}
+
+function drawGrid() {
+  ctx.font = "12px 'Segoe UI','PingFang SC',sans-serif";
+  ctx.fillStyle = "#8a94a6";
+  // 竖网格（n 轴）
+  const sxn = niceStep((XR[1] - XR[0]) / 12);
+  for (let n = Math.ceil(XR[0] / sxn) * sxn; n <= XR[1] + 1e-9; n += sxn) {
+    const px = x2p(n);
+    ctx.strokeStyle = (Math.round(n) === Math.round(sxn) ) ? "#d5dce9" : "#eef1f6";
+    ctx.strokeStyle = "#eef1f6";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(px, P.t); ctx.lineTo(px, cv.height - P.b); ctx.stroke();
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    ctx.fillText(n, px, cv.height - P.b + 6);
+  }
+  // 横网格（xₙ 轴）
+  const sy = niceStep((YR[1] - YR[0]) / 8);
+  for (let y = Math.ceil(YR[0] / sy) * sy; y <= YR[1] + 1e-9; y += sy) {
+    const py = y2p(y);
+    ctx.strokeStyle = (Math.abs(y - A) < 1e-9) ? "#cdd6e6" : "#eef1f6";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(P.l, py); ctx.lineTo(cv.width - P.r, py); ctx.stroke();
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    ctx.fillText(tick(y), P.l - 8, py);
+  }
+  // 轴标题
+  ctx.fillStyle = "#6b7280";
+  ctx.textAlign = "right"; ctx.textBaseline = "bottom";
+  ctx.font = "bold 13px 'Segoe UI','PingFang SC',sans-serif";
+  ctx.fillText("项号 n →", cv.width - P.r, cv.height - P.b + 20);
+  ctx.textAlign = "left"; ctx.textBaseline = "top";
+  ctx.fillText("↑ xₙ", P.l, P.t - 4);
+}
+
+/* 收敛线 y = a */
+function drawLimitLine() {
+  const py = y2p(A);
+  ctx.save();
+  ctx.strokeStyle = "rgba(26,34,51,.35)";
+  ctx.setLineDash([6, 5]);
+  ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.moveTo(P.l, py); ctx.lineTo(cv.width - P.r, py); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "rgba(26,34,51,.55)";
+  ctx.font = "12.5px 'PingFang SC',sans-serif";
+  ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+  ctx.fillText("y = a = 1（收敛目标）", cv.width - P.r - 10, py - 4);
+  ctx.restore();
+}
+
+/* 红色 ε 带 [a-ε, a+ε] */
+function drawEpsBand() {
+  const e = eps();
+  const yU = y2p(clamp(A + e, YR[0], YR[1]));
+  const yL = y2p(clamp(A - e, YR[0], YR[1]));
+  const W = cv.width - P.l - P.r;
+  ctx.save();
+  ctx.fillStyle = "rgba(255,41,65,.13)";
+  ctx.fillRect(P.l, yU, W, Math.max(0, yL - yU));
+  ctx.strokeStyle = "rgba(255,41,65,.85)";
+  ctx.lineWidth = 1.6;
+  [yU, yL].forEach(yy => {
+    ctx.beginPath(); ctx.moveTo(P.l, yy); ctx.lineTo(P.l + W, yy); ctx.stroke();
+  });
+  ctx.fillStyle = "#ff2941";
+  ctx.font = "bold 13px 'Segoe UI','PingFang SC',sans-serif";
+  ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+  ctx.fillText("a+ε = " + fmt3(A + e), P.l + 6, yU - 3);
+  ctx.textBaseline = "top";
+  ctx.fillText("a−ε = " + fmt3(A - e), P.l + 6, yL + 3);
+  ctx.restore();
+}
+
+/* 绿色分界线 N */
+function drawNLine() {
+  const n = N();
+  const px = x2p(n + 0.5);       // n>N 与 n≤N 的分界
+  const py1 = P.t, py2 = cv.height - P.b;
+  ctx.save();
+  ctx.strokeStyle = "rgba(0,166,83,.92)";
+  ctx.lineWidth = 2.6;
+  ctx.setLineDash([]);
+  ctx.shadowColor = "rgba(0,166,83,.35)";
+  ctx.shadowBlur = 6;
+  ctx.beginPath(); ctx.moveTo(px, py1); ctx.lineTo(px, py2); ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#00a653";
+  ctx.font = "bold 15px 'Segoe UI','PingFang SC',sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+  ctx.fillText("N = " + n, px, py1 - 8);
+  ctx.font = "12px 'PingFang SC',sans-serif";
+  ctx.textBaseline = "top";
+  ctx.fillText("n > N 达标", px, py1 - 4);
+  ctx.restore();
+}
+
+/* 数列点列 */
+function drawPoints() {
+  const n = N();
+  const hover = state.hover;
+  for (let i = 1; i <= NMAX; i++) {
+    const y = xn(i);
+    const px = x2p(i), py = y2p(y);
+    if (py < P.t - 8 || py > cv.height - P.b + 8) continue;
+    const inBand = i > n;           // 严格 n>N 的点才算达标
+    const isHover = hover && hover.n === i;
+    ctx.save();
+    if (inBand) {
+      ctx.fillStyle = isHover ? "#1a5fd4" : "#0a66f0";
+    } else {
+      ctx.fillStyle = isHover ? "rgba(110,120,140,.8)" : "rgba(150,160,180,.45)";
+    }
+    const r = isHover ? 6.5 : (inBand ? 4 : 3.6);
+    ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+    if (isHover) {
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+/* hover 提示 */
+function renderHoverTip() {
+  const tip = $("hoverTip");
+  if (!state.hover) { tip.style.display = "none"; return; }
+  const h = state.hover;
+  tip.innerHTML = "n = <b>" + h.n + "</b>，x<sub>n</sub> = <b>" + fmt3(h.x) + "</b><br>|xₙ−a| = <b>" + (h.x > A ? h.x - A : A - h.x).toFixed(4) + "</b>" + (h.n > N() ? " ✅ 在带内" : "（n≤N）");
+  tip.style.display = "block";
+  tip.style.left = (h.mx + 16) + "px";
+  tip.style.top = (h.my + 14) + "px";
+}
+
+function draw() {
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  drawGrid();
+  drawLimitLine();
+  drawEpsBand();
+  drawPoints();
+  drawNLine();
+  renderHoverTip();
+}
+
+/* ---------- 状态栏 ---------- */
+function renderStatus() {
+  const e = eps(), n = N();
+  const st = $("status");
+  st.className = "status ok";
+  if (n >= NMAX) {
+    st.className = "status bad";
+    st.innerHTML = '<span class="ico">✗</span>ε 太小了：N = ' + n + ' 超过本页展示范围（共 ' + NMAX + ' 项）。'
+      + '<span class="sub">调大 ε（向左拖）以看到完整的 N；这也说明"ε 任意小"意味着数列的尾部要足够长。</span>';
+    return;
+  }
+  st.innerHTML = '<span class="ico">✓</span>ε = ' + fmt3(e) + ' ⟶ 带 (' + fmt3(A - e) + ', ' + fmt3(A + e) + ')，分界点 N = <b>' + n + '</b>'
+    + '<span class="sub">从第 ' + (n + 1) + ' 项起，|xₙ − a| = 1/n &lt; ' + fmt3(e) + '，之后所有点（蓝色）全部落进红带。绿线左边 ' + n + ' 个灰色点可以随便乱。</span>';
+}
+
+/* ---------- 事件 ---------- */
+$("eps").addEventListener("input", e => {
+  state.eps = epsFromSlider(parseFloat(e.target.value));
+  syncInputs();
+  renderStatus();
+  draw();
+});
+$("resetBtn").onclick = () => {
+  if (state.demo) stopDemo();
+  state.eps = 0.1;
+  syncInputs(); renderStatus(); draw();
+};
+cv.addEventListener("mousemove", ev => {
+  const rect = cv.getBoundingClientRect();
+  const px = (ev.clientX - rect.left) / rect.width * cv.width;
+  const py = (ev.clientY - rect.top) / rect.height * cv.height;
+  const nApprox = px2n(px);
+  const nPick = Math.max(1, Math.min(NMAX, Math.round(nApprox)));
+  const pp = x2p(nPick), yp = y2p(xn(nPick));
+  if (Math.hypot(pp - px, yp - py) < 26) {
+    state.hover = { n: nPick, x: xn(nPick), mx: ev.clientX, my: ev.clientY };
+  } else {
+    state.hover = null;
+  }
+  renderHoverTip();
+  drawPoints(); drawNLine(); renderHoverTip();
+});
+cv.addEventListener("mouseleave", () => { state.hover = null; renderHoverTip(); drawPoints(); drawNLine(); });
+
+function syncInputs() {
+  const s = sliderFromEps(state.eps);
+  $("eps").value = clamp(s, 0, 1);
+  $("epsVal").textContent = fmt3(state.eps);
+  const n = N();
+  $("nVal").textContent = n;
+  $("nDesc").innerHTML = '当 n &gt; <b>' + n + '</b> 时，1/n &lt; ' + fmt3(state.eps) + '，即 |xₙ−a|&lt;ε —— 绿线右边全是达标点';
+}
+/* ---------- 自动演示（还原原视频流程） ---------- */
+function stopDemo() {
+  if (state.demo) state.demo.stop = true;
+}
+
+async function comment(text, ms, cls) {
+  const st = $("status");
+  st.className = "status " + (cls || "demo");
+  st.innerHTML = '<span class="ico">🎬</span>' + text;
+  await sleep(ms);
+}
+
+async function tweenEps(from, to, ms, token) {
+  const s0 = sliderFromEps(from), s1 = sliderFromEps(to);
+  const t0 = performance.now();
+  while (true) {
+    if (token.stop) return;
+    const t = clamp((performance.now() - t0) / ms, 0, 1);
+    const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    state.eps = epsFromSlider(s0 + (s1 - s0) * ease);
+    syncInputs();
+    renderStatus();
+    draw();
+    if (t >= 1) return;
+    await sleep(33);
+  }
+}
+
+async function runDemo() {
+  const token = { stop: false };
+  state.demo = token;
+  const b = $("demoBtn");
+  b.textContent = "■ 停止演示";
+  b.classList.add("stop");
+  try {
+    /* 初始 ε=0.1 */
+    state.eps = 0.1;
+    syncInputs(); renderStatus(); draw();
+    await comment("数列 xₙ = 1 − 1/n 越来越接近 1：0, 1/2, 2/3, 3/4, 4/5… 但“越来越接近”太糙，数学要把它说准。<br>"
+      + "<span class='sub'>先说 ε：取 ε = 0.1，以 a=1 为中心画两条线，夹出的红带就是允许的误差范围 (0.9, 1.1)。</span>", 3400, "demo");
+    if (token.stop) return;
+
+    await comment("现在找一个 N：绿线所在位置就是 N = 10。<br>"
+      + "<span class='sub'>绿线左边 n≤10 的灰色点可以随便乱（第 10 项 |x₁₀−1| = 0.1 恰好等于 ε，还不算达标）；<b>从第 11 项起</b>全落到红带里——这些蓝色点，从它往后每一个都达标。</span>", 3200, "ok");
+    if (token.stop) return;
+
+    await comment("把 ε 从 0.1 拖到 0.01（每次缩小十倍，要求严十倍）——盯着看两件事同时发生：<br>"
+      + "<span class='sub'>带变窄了，(0.9,1.1) → (0.99,1.01)；<b>绿线往右移了，N 从 10 一路推到 100</b>。因为要求一严，数列就得多走几项才能达标。</span>", 3000, "demo");
+    if (token.stop) return;
+    await tweenEps(0.1, 0.01, 4800, token);
+    if (token.stop) return;
+    renderStatus();
+
+    await comment("ε = 0.01：N = 100。前 100 项（灰色）全在带外，<b>从第 101 项起才全部进带</b>。<br>"
+      + "<span class='sub'>1/n &lt; 0.01 ⟺ n &gt; 100 —— 这就是 |xₙ−a|&lt;ε 的直接翻译。</span>", 3400, "ok");
+    if (token.stop) return;
+
+    await comment("再把 ε 拖回去（0.01 → 0.1）：绿线也跟着回来，N 退回 10。<br>"
+      + "<span class='sub'>N 不是一开始就有的，是 ε 定下来之后才去找的。ε 在前，N 在后——N 跟着 ε 走，这就是它们的依赖关系。</span>", 3200, "demo");
+    if (token.stop) return;
+    await tweenEps(0.01, 0.1, 3800, token);
+    if (token.stop) return;
+    renderStatus();
+
+    await comment("回过头看定义：∀ε&gt;0，∃正整数 N，当 n&gt;N 时，总有 |xₙ−a|&lt;ε。<br>"
+      + "<span class='sub'>∀ε&gt;0 —— 不管你要求多小；∃N —— 我都能找到一个分界点；从那以后每一项都达标。这就是收敛：不是“越来越接近”，是“你随便提，我都能做到”。</span>", 3600, "ok");
+    if (token.stop) return;
+
+    await comment("三个易卡点：① N 为什么是“存在”不是“任意”？——N 是找到的回应，不是随便给的要求，ε=0.01 时随便挑 N=10 就不行；② N 之前的项不用管——前 100 项在带外不影响收敛；③ N 不唯一——N=100、101、200 都行，找到一个就够。", 3800, "demo");
+    if (token.stop) return;
+
+    comment("🎉 演示结束。一句话总结：ε 是要求，N 是回应；“你提多严的要求，我都能找到一个位置，从那以后全达标”——这就是数列收敛的 ε-N。", 2600, "ok");
+  } finally {
+    state.demo = null;
+    b.textContent = "▶ 自动演示（还原原视频流程）";
+    b.classList.remove("stop");
+  }
+}
+
+$("demoBtn").onclick = () => {
+  if (state.demo) { stopDemo(); return; }
+  runDemo();
+};
+
+/* ---------- 初始化 ---------- */
+$("notice").innerHTML = "操作：拖下面的 ε 滑块（对数刻度），红带变宽/变窄，绿色分界线 N = ⌊1/ε⌋ 自动移动；把鼠标移动到点上可查看它是否达标。";
+state.eps = 0.1;
+syncInputs();
+renderStatus();
+draw();
+</script>
+</body>
+</html>

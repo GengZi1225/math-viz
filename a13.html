@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>13种特殊平面图鉴 · 3D 交互式 Ax+By+Cz+D=0</title>
+<style>
+  :root{
+    --bg:#0a1428; --card:#0d1b3a; --panel:#0f2148;
+    --title1:#0a1428; --title2:#1e3a6e;
+    --orange:#ff9f2e; --gold:#ffd23d; --red:#ff6b6b; --blue:#67b0f6; --cyan:#4fd6e0; --green:#5ee8a6;
+    --text:#e8eff9; --muted:#8fa3c4; --line:#27407a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    background:#050d1f; color:var(--text);
+    display:flex; justify-content:center; padding:22px 12px;
+  }
+  .app{width:100%; max-width:1120px; background:var(--card); border-radius:16px;
+       border:1px solid #1c3a72; box-shadow:0 24px 60px rgba(0,0,0,.5); overflow:hidden;}
+  .titlebar{
+    background:linear-gradient(120deg,var(--title1),var(--title2));
+    color:#fff; padding:15px 26px 12px; border-bottom:1px solid #27407a;
+  }
+  .titlebar h1{font-size:21px; font-weight:700;}
+  .titlebar h1 em{font-style:normal; color:var(--gold); font-weight:800;}
+  .titlebar .eq{margin-top:7px; font-size:14px; color:#dfe8fa; line-height:1.8;
+     background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16);
+     padding:7px 14px; border-radius:9px; display:inline-block;}
+  .titlebar .eq b{color:var(--orange);}
+  .titlebar p{font-size:12.5px; opacity:.88; margin-top:6px; color:#a9c2ee; line-height:1.7;}
+  .titlebar p b{color:#ffc36b;}
+  /* 主体布局 */
+  .body{display:flex; gap:14px; padding:12px 20px 0; flex-wrap:wrap;}
+  .view{flex:1.5; min-width:360px;}
+  .side{flex:1; min-width:250px; display:flex; flex-direction:column; gap:10px;}
+  .panel-box{background:#0c1d3d; border:1px solid #27407a; border-radius:12px; padding:10px 12px;}
+  .panel-box h3{font-size:13px; color:#d7e3ff; margin-bottom:8px; font-weight:700;}
+  /* 画布 */
+  canvas#cv{display:block; width:100%; border-radius:10px; background:radial-gradient(circle at 50% 38%, #12285a, #060f22 78%); border:1px solid #1c3a72; cursor:grab; touch-action:none;}
+  canvas#cv:active{cursor:grabbing;}
+  .hint{font-size:11.5px; color:#7f93b8; padding:5px 4px 0; line-height:1.6;}
+  /* 当前平面 */
+  .curp{border:1px solid rgba(255,159,46,.5); background:rgba(255,159,46,.07);}
+  .curp .plt{font-size:16px; font-weight:800; color:var(--orange); margin-bottom:6px;}
+  .curp .note{font-size:12.5px; color:#cfe0ff; line-height:1.8;}
+  /* 平面分组列表 */
+  .group{display:flex; flex-direction:column; gap:4px;}
+  .ghead{font-size:12px; color:var(--gold); padding:6px 2px 2px; font-weight:700;}
+  .item{
+    display:flex; align-items:center; gap:8px; padding:6px 9px; border-radius:8px;
+    background:#101f42; border:1px solid #24406f; cursor:pointer; transition:all .12s;
+    font-size:12.5px; color:#cfe0ff; line-height:1.35;
+  }
+  .item:hover{background:#1a2f5e; border-color:#3a5a96;}
+  .item.cur{background:#26355f; border-color:var(--orange); box-shadow:0 0 0 1px var(--orange) inset;}
+  .item.cur .eq2{color:var(--orange); font-weight:700;}
+  .item .eq2{font-family:'Consolas',monospace; font-size:12px; color:#a9c2ee; margin-left:auto; white-space:nowrap;}
+  /* 图例 */
+  .legend{display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:#a9c2ee; padding:6px 4px 0; user-select:none;}
+  .legend i{display:inline-block; width:11px; height:11px; border-radius:2px; vertical-align:-1px; margin-right:5px;}
+  .legend .x{background:var(--red);} .legend .y{background:var(--green);} .legend .z{background:var(--blue);}
+  .legend .p{background:var(--orange); opacity:.8;}
+  /* 底部 */
+  .panel{padding:10px 24px 18px; background:#0c1a36; border-top:1px solid #1c385e;}
+  .actions{display:flex; gap:10px; margin-top:6px; flex-wrap:wrap;}
+  .btn{border:none; padding:9px 18px; border-radius:9px; font-size:13.5px; font-weight:700; cursor:pointer;
+     background:linear-gradient(120deg,#2a5191,#1e3a6e); color:#fff; transition:all .18s; box-shadow:0 4px 14px rgba(0,0,0,.35);}
+  .btn:hover{transform:translateY(-1px); filter:brightness(1.1);}
+  .btn.secondary{background:#152a55; color:#cfe0ff; border:1px solid #33589e; box-shadow:none;}
+  .notice{font-size:12px; color:#7f93b8; margin-top:8px; line-height:1.7; background:#0e1f42;
+     border-left:3px solid #33589e; padding:7px 12px; border-radius:0 8px 8px 0;}
+  @media (max-width:760px){ .body{flex-direction:column;} }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="titlebar">
+    <h1>3D 特殊平面图鉴 <em>·</em> Ax + By + Cz + D = 0 的 13 种样子</h1>
+    <div class="eq">平面一般方程 <b>Ax + By + Cz + D = 0</b>　（A、B、C 是系数，D 是常数项）</div>
+    <p>参数一变，平面就挪。常见特殊情形共 <b>13 种</b>：过原点、平行/包含坐标轴、平行/重合坐标面。左侧点平面，右侧<b>拖拽旋转 · 滚轮缩放</b>，方程与立体同屏对照。</p>
+  </div>
+
+  <div class="body">
+    <div class="view">
+      <canvas id="cv" width="640" height="520"></canvas>
+      <div class="legend">
+        <span><i class="x"></i> x 轴</span>
+        <span><i class="y"></i> y 轴</span>
+        <span><i class="z"></i> z 轴</span>
+        <span><i class="p"></i> 当前特殊平面</span>
+      </div>
+      <div class="hint">操作：在画面里按住拖动旋转视角；滚轮缩放；双击复位。坐标面虚线为空间参考。</div>
+    </div>
+
+    <div class="side">
+      <div class="panel-box curp">
+        <div class="plt" id="curEq">x + y + z = 0</div>
+        <div class="note" id="curNote">D=0 → 平面一定过原点 (0,0,0)，斜穿八个卦限。</div>
+      </div>
+
+      <div class="panel-box">
+        <h3>13 种特殊平面（点选查看）</h3>
+        <div class="group">
+          <div class="ghead">① 过原点 (D=0)</div>
+          <div id="g1"></div>
+          <div class="ghead">② 与坐标轴相关</div>
+          <div id="g2"></div>
+          <div class="ghead">③ 与坐标面相关</div>
+          <div id="g3"></div>
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <h3>记忆口诀</h3>
+        <div class="note" style="font-size:12px;color:#a9c2ee;line-height:1.9;">
+          缺哪个字母 → 平行于哪个轴；缺字母且 D=0 → 包含那个轴。<br>
+          只剩一个字母 = 常数 → 平行于坐标面；= 0 → 重合坐标面。<br>
+          注意：包含轴的平面不一定是竖直的（如 y−z=0 与 yoz 面成 45°）。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="actions">
+      <button class="btn" id="spinBtn">▶ 自动旋转</button>
+      <button class="btn secondary" id="resetBtn">↺ 复位视角</button>
+    </div>
+    <div class="notice" id="notice"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+ * 13 种特殊平面图鉴 —— 3D 交互式复刻
+ * 平面一般方程 Ax+By+Cz+D=0；自写 Canvas 3D 正交投影 + 轨道旋转/缩放
+ * ============================================================ */
+
+const $ = id => document.getElementById(id);
+
+/* ---------- 13 种特殊平面 ---------- */
+const PLANES = [
+  // 第 1 组：过原点（D=0）
+  { g: 1, name: "过原点", eq2: "x+y+z=0",   eq: [1, 1, 1, 0],   note: "D=0 → 平面必过原点 (0,0,0)，斜穿八个卦限。" },
+  // 第 2 组：与坐标轴相关（6 种）
+  { g: 2, name: "平行于 x 轴", eq2: "y+z=2",   eq: [0, 1, 1, -2], note: "缺 x → 沿 x 轴方向无限延伸，但永远碰不到 x 轴（平行）。" },
+  { g: 2, name: "包含 x 轴", eq2: "y−z=0",   eq: [0, 1, -1, 0],  note: "缺 x 且 D=0 → 整个 x 轴都在平面上，可绕 x 轴斜转（与 yoz 面成 45°）。" },
+  { g: 2, name: "平行于 y 轴", eq2: "x+z=−1",  eq: [1, 0, 1, 1],   note: "缺 y → 平行于 y 轴，永远碰不到 y 轴。" },
+  { g: 2, name: "包含 y 轴", eq2: "x−z=0",   eq: [1, 0, -1, 0],  note: "缺 y 且 D=0 → 包含整个 y 轴。" },
+  { g: 2, name: "平行于 z 轴", eq2: "x+y=3",   eq: [1, 1, 0, -3], note: "缺 z → 平行于 z 轴（竖直侧立的平面）。" },
+  { g: 2, name: "包含 z 轴", eq2: "x−y=0",   eq: [1, -1, 0, 0],  note: "缺 z 且 D=0 → 包含整个 z 轴。" },
+  // 第 3 组：与坐标面相关（6 种）
+  { g: 3, name: "平行于 yoz 面", eq2: "x=2.5",   eq: [1, 0, 0, -2.5], note: "只剩 x：垂直于 x 轴 → 平行于 yoz 面。" },
+  { g: 3, name: "yoz 坐标面",  eq2: "x=0",     eq: [1, 0, 0, 0],   note: "x=0 就是 yoz 面本身。" },
+  { g: 3, name: "平行于 xoz 面", eq2: "y=−2",   eq: [0, 1, 0, 2],   note: "只剩 y → 平行于 xoz 面。" },
+  { g: 3, name: "xoz 坐标面",  eq2: "y=0",     eq: [0, 1, 0, 0],   note: "y=0 就是 xoz 面本身。" },
+  { g: 3, name: "平行于 xoy 面", eq2: "z=2",     eq: [0, 0, 1, -2],  note: "只剩 z → 平行于 xoy 面（像天花板）。" },
+  { g: 3, name: "xoy 坐标面",  eq2: "z=0",     eq: [0, 0, 1, 0],   note: "z=0 就是 xoy 面本身（地面）。" }
+];
+
+/* ---------- 相机与状态 ---------- */
+const state = {
+  idx: 0,
+  theta: 0.7,        // 绕 Y 轴（方位角）
+  phi: -0.5,         // 绕 X 轴（仰角）
+  scale: 1,
+  spin: false,
+  dragging: null
+};
+
+const cv = $("cv");
+const ctx = cv.getContext("2d");
+const W = cv.width, H = cv.height;
+const CX = W / 2, CY = H / 2;
+const BASE = 95;               // 单位长度（世界 1 → 屏幕像素），保证三轴+箭头完整入画
+
+/* ---------- 向量工具 ---------- */
+function cross(a, b) {
+  return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+}
+function norm(a) { const l = Math.hypot(a[0], a[1], a[2]); return l > 1e-12 ? [a[0] / l, a[1] / l, a[2] / l] : [0, 0, 0]; }
+function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+
+/* ---------- 投影（z-up 右手系：绕 Z 转方位 → 绕 X 转俯仰，z 竖直向上）
+ * x 与 y 交换：y 为水平轴，x 为进深轴 ------------------------------- */
+function project(p) {
+  const th = state.theta, ph = state.phi;
+  const cT = Math.cos(th), sT = Math.sin(th);
+  const cP = Math.cos(ph), sP = Math.sin(ph);
+  // 交换 x 与 y（让 y 指向水平、x 成为进深方向），保持 z 竖直向上
+  const x = p[1], y = p[0], z = p[2];
+  // 绕 Z 轴（水平方位角）
+  const x1 = x * cT + y * sT;
+  const y1 = -x * sT + y * cT;
+  // 绕 X 轴（俯仰角）
+  const y2 = y1 * cP - z * sP;
+  const z2 = y1 * sP + z * cP;
+  // 弱透视（z 更大的点更近）
+  const f = 1 / (1 + z2 * 0.10);
+  return [CX + x1 * BASE * state.scale * f, CY - z2 * BASE * state.scale * f];
+}
+
+function projectPoly(pts) { return pts.map(p => project(p)); }
+
+/* ---------- 平面片顶点（大圆片，后续裁剪进坐标盒） ---------- */
+function planeQuad(eq, r) {
+  const [A, B, C, D] = eq;
+  const n = norm([A, B, C]);
+  let P0;
+  if (Math.abs(C) > 1e-9) P0 = [0, 0, -D / C];
+  else if (Math.abs(B) > 1e-9) P0 = [0, -D / B, 0];
+  else P0 = [-D / A, 0, 0];
+  // 与 n 正交的两个方向 u, v
+  let u = norm(cross(n, [1, 0, 0]));
+  if (Math.hypot(...u) < 0.5) u = norm(cross(n, [0, 1, 0]));
+  const v = norm(cross(n, u));
+  const q = i => {
+    const m1 = i === 0 || i === 1 ? 1 : -1;
+    const m2 = i === 1 || i === 2 ? 1 : -1;
+    return [P0[0] + r * m1 * u[0] + r * m2 * v[0],
+            P0[1] + r * m1 * u[1] + r * m2 * v[1],
+            P0[2] + r * m1 * u[2] + r * m2 * v[2]];
+  };
+  return [q(0), q(1), q(2), q(3)];
+}
+
+/* ---------- 多边形按半空间裁剪（Sutherland–Hodgman） ---------- */
+const BOX = 2.6;   // 呈现盒半边长（容纳 x=2.5 / y=−2 / z=2 等特殊平面）
+function interp(a, b, sa, sb) {
+  const t = sa / (sa - sb);
+  return [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]), a[2] + t * (b[2] - a[2])];
+}
+function clipHalf(poly, n, d) {      // 保留 n·p + d ≤ 0
+  if (poly.length < 3) return poly;
+  const out = [];
+  let v0 = poly[poly.length - 1];
+  let s0 = n[0] * v0[0] + n[1] * v0[1] + n[2] * v0[2] + d;
+  for (const v of poly) {
+    const s1 = n[0] * v[0] + n[1] * v[1] + n[2] * v[2] + d;
+    if (s1 <= 0) {
+      if (s0 > 0) out.push(interp(v0, v, s0, s1));
+      out.push(v);
+    } else if (s0 <= 0) {
+      out.push(interp(v0, v, s0, s1));
+    }
+    v0 = v; s0 = s1;
+  }
+  return out;
+}
+function clipToBox(poly, L) {
+  const halves = [
+    [[1, 0, 0], -L], [[-1, 0, 0], -L],
+    [[0, 1, 0], -L], [[0, -1, 0], -L],
+    [[0, 0, 1], -L], [[0, 0, -1], -L]
+  ];
+  for (const [n, d] of halves) poly = clipHalf(poly, n, d);
+  return poly;
+}
+/* 向多边形中心收缩（让平面在坐标区域内呈现得更紧凑） */
+function shrinkPoly(poly, f) {
+  if (poly.length < 3) return poly;
+  let cx = 0, cy = 0, cz = 0;
+  for (const p of poly) { cx += p[0]; cy += p[1]; cz += p[2]; }
+  cx /= poly.length; cy /= poly.length; cz /= poly.length;
+  return poly.map(p => [cx + (p[0] - cx) * f, cy + (p[1] - cy) * f, cz + (p[2] - cz) * f]);
+}
+
+/* ---------- 绘制 ---------- */
+function draw() {
+  const pl = PLANES[state.idx];
+  ctx.clearRect(0, 0, W, H);
+  // 背景
+  ctx.fillStyle = "#060f22";
+  ctx.fillRect(0, 0, W, H);
+  const g = ctx.createRadialGradient(CX, CY * 0.85, 10, CX, CY, H * 0.72);
+  g.addColorStop(0, "#162d63");
+  g.addColorStop(1, "#060f22");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  /* 黯化网格：三个坐标面上的参考线（淡） */
+  ctx.lineWidth = 1;
+  const gridCol = "rgba(120,170,255,.16)";
+  for (let face = 0; face < 3; face++) {
+    const fixed = face === 0 ? 0 : face === 1 ? 1 : 2;
+    const a = face === 0 ? 1 : 0, b = face === 2 ? 1 : 2;
+    const step = 0.5;
+    ctx.strokeStyle = gridCol;
+    for (let v = -2.5; v <= 2.501; v += step) {
+      const p1 = [0, 0, 0]; p1[fixed] = 0; p1[a] = v; p1[b] = -BOX;
+      const p2 = [0, 0, 0]; p2[fixed] = 0; p2[a] = v; p2[b] = BOX;
+      const s1 = project(p1), s2 = project(p2);
+      ctx.beginPath(); ctx.moveTo(s1[0], s1[1]); ctx.lineTo(s2[0], s2[1]); ctx.stroke();
+      const p3 = [0, 0, 0]; p3[fixed] = 0; p3[a] = -BOX; p3[b] = v;
+      const p4 = [0, 0, 0]; p4[fixed] = 0; p4[a] = BOX; p4[b] = v;
+      const s3 = project(p3), s4 = project(p4);
+      ctx.beginPath(); ctx.moveTo(s3[0], s3[1]); ctx.lineTo(s4[0], s4[1]); ctx.stroke();
+    }
+  }
+
+  /* 坐标轴（正实线 + 负虚线） */
+  const axes = [
+    { v: [1, 0, 0], neg: [0, 0, 0], col: "#ff6b6b", lab: "x" },
+    { v: [0, 1, 0], neg: [0, 0, 0], col: "#5ee8a6", lab: "y" },
+    { v: [0, 0, 1], neg: [0, 0, 0], col: "#67b0f6", lab: "z" }
+  ];
+  for (const ax of axes) {
+    const p0 = project([0, 0, 0]);
+    const pp = project([ax.v[0] * 2.4, ax.v[1] * 2.4, ax.v[2] * 2.4]);
+    ctx.strokeStyle = ax.col;
+    ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(pp[0], pp[1]); ctx.stroke();
+    // 负半轴淡虚线（与正端等长）
+    ctx.strokeStyle = ax.col + "55";
+    ctx.setLineDash([4, 4]);
+    const pn = project([-ax.v[0] * 2.4, -ax.v[1] * 2.4, -ax.v[2] * 2.4]);
+    ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(pn[0], pn[1]); ctx.stroke();
+    ctx.setLineDash([]);
+    // 正方向箭头（实心三角形，指向正方向顶点外）
+    const ddx = pp[0] - p0[0], ddy = pp[1] - p0[1];
+    const dl = Math.hypot(ddx, ddy) || 1;
+    const ux = ddx / dl, uy = ddy / dl;
+    const ALEN = 15, AWID = 7;
+    const tipX = pp[0] + ux * ALEN, tipY = pp[1] + uy * ALEN;
+    const bx = tipX - ux * (ALEN * 1.6) - uy * AWID, by = tipY - uy * (ALEN * 1.6) + ux * AWID;
+    const cx = tipX - ux * (ALEN * 1.6) + uy * AWID, cy = tipY - uy * (ALEN * 1.6) - ux * AWID;
+    ctx.fillStyle = ax.col;
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(bx, by);
+    ctx.lineTo(cx, cy);
+    ctx.closePath();
+    ctx.fill();
+    // 标签（放在箭头尖外侧）
+    ctx.fillStyle = ax.col;
+    ctx.font = "bold 15px 'Segoe UI','PingFang SC'";
+    ctx.fillText(ax.lab, tipX + 4, tipY - 4);
+  }
+  // 原点
+  ctx.fillStyle = "#fff";
+  ctx.beginPath(); ctx.arc(CX, CY, 3.4, 0, 2 * Math.PI); ctx.fill();
+
+  /* 坐标盒线框（淡，提示“坐标区域”） */
+  ctx.strokeStyle = "rgba(255,255,255,.16)";
+  ctx.setLineDash([3, 5]);
+  ctx.lineWidth = 1;
+  const boxv = [
+    [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
+    [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]
+  ].map(v => v.map(c => c * BOX));
+  const boxEdges = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]];
+  for (const [a, b] of boxEdges) {
+    const pa = project(boxv[a]), pb = project(boxv[b]);
+    ctx.beginPath(); ctx.moveTo(pa[0], pa[1]); ctx.lineTo(pb[0], pb[1]); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  /* 当前平面（裁剪进坐标盒后向原点整体缩放，小巧且居中） */
+  let quad = planeQuad(pl.eq, 4.2);        // 足够大的片
+  quad = clipToBox(quad, BOX);             // 裁剪成坐标区域内多边形
+  if (quad.length >= 3) {
+    quad = quad.map(p => [p[0] * 0.45, p[1] * 0.45, p[2] * 0.45]);  // 收缩到约 45%，让平面小巧居中
+    const pts = projectPoly(quad);
+    ctx.beginPath();
+    pts.forEach((p, i) => (i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1])));
+    ctx.closePath();
+    ctx.fillStyle = "rgba(255,159,46,.30)";
+    ctx.fill();
+    ctx.strokeStyle = "#ffb463";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    /* 顶角点 */
+    ctx.fillStyle = "#ffd23d";
+    for (const p of pts) {
+      ctx.beginPath(); ctx.arc(p[0], p[1], 3.4, 0, 2 * Math.PI); ctx.fill();
+    }
+  }
+
+  /* 顶部方程标题 */
+  ctx.fillStyle = "#ffe3b3";
+  ctx.font = "bold 17px 'PingFang SC'";
+  ctx.textAlign = "left";
+  ctx.fillText("Ax+By+Cz+D=0　👉　" + pl.eq2.replaceAll("-", "−"), 16, 28);
+  ctx.fillStyle = "#9db4dd";
+  ctx.font = "13px 'PingFang SC'";
+  ctx.fillText(pl.name, 16, 50);
+}
+
+/* ---------- UI ---------- */
+function buildList() {
+  for (let gi = 1; gi <= 3; gi++) {
+    const box = $( "g" + gi);
+    if (!box) continue;
+    box.innerHTML = "";
+    PLANES.forEach((pl, i) => {
+      if (pl.g !== gi) return;
+      const it = document.createElement("div");
+      it.className = "item" + (i === state.idx ? " cur" : "");
+      it.innerHTML = "<span>" + pl.name + "</span><span class='eq2'>" + pl.eq2 + "</span>";
+      it.onclick = () => { select(i); };
+      box.appendChild(it);
+    });
+  }
+}
+function select(i) {
+  state.idx = i;
+  const pl = PLANES[i];
+  $("curEq").textContent = pl.name + "　·　" + pl.eq2;
+  $("curNote").textContent = pl.note;
+  buildList();
+  draw();
+}
+
+/* ---------- 交互 ---------- */
+let down = null;
+cv.addEventListener("mousedown", e => { down = { x: e.clientX, y: e.clientY }; cv.style.cursor = "grabbing"; });
+window.addEventListener("mouseup", () => { down = null; cv.style.cursor = "grab"; });
+window.addEventListener("mousemove", e => {
+  if (!down) return;
+  state.theta -= (e.clientX - down.x) * 0.008;
+  state.phi += (e.clientY - down.y) * 0.008;
+  state.phi = Math.max(-1.5, Math.min(1.5, state.phi));
+  down = { x: e.clientX, y: e.clientY };
+  draw();
+});
+cv.addEventListener("wheel", e => {
+  e.preventDefault();
+  state.scale *= e.deltaY < 0 ? 1.1 : 1 / 1.1;
+  state.scale = Math.max(0.4, Math.min(3, state.scale));
+  draw();
+}, { passive: false });
+cv.addEventListener("dblclick", () => {
+  state.theta = 0.7; state.phi = -0.5; state.scale = 1;
+  draw();
+});
+// 触摸
+cv.addEventListener("touchstart", e => {
+  const t = e.touches[0];
+  down = { x: t.clientX, y: t.clientY };
+}, { passive: true });
+cv.addEventListener("touchmove", e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  if (down) {
+    state.theta -= (t.clientX - down.x) * 0.008;
+    state.phi += (t.clientY - down.y) * 0.008;
+    state.phi = Math.max(-1.5, Math.min(1.5, state.phi));
+    down = { x: t.clientX, y: t.clientY };
+    draw();
+  }
+}, { passive: false });
+cv.addEventListener("touchend", () => { down = null; });
+
+$("resetBtn").onclick = () => { state.theta = 0.7; state.phi = -0.5; state.scale = 1; draw(); };
+$("spinBtn").onclick = () => {
+  state.spin = !state.spin;
+  $("spinBtn").textContent = state.spin ? "■ 停止旋转" : "▶ 自动旋转";
+  if (state.spin) tick();
+};
+
+function tick() {
+  if (state.spin) {
+    state.theta += 0.006;
+    draw();
+    requestAnimationFrame(tick);
+  }
+}
+
+/* ---------- 初始化 ---------- */
+$("notice").innerHTML = "共 13 种特殊平面，分三组：① 过原点(D=0) ② 缺字母→平行于对应轴、缺字母且D=0→包含该轴 ③ 只剩一个字母→平行/重合坐标面。";
+select(0);
+draw();
+</script>
+</body>
+</html>

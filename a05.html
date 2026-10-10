@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ε-δ 极限可视化 · 为什么非要找 δ？</title>
+<style>
+  :root{
+    --bg:#f4f6fb; --card:#ffffff; --titlebar:#1b2a4a;
+    --curve:#0a66f0; --eps:#ff2941; --delta:#00a653;
+    --text:#1a2233; --muted:#6b7280; --line:#e2e8f0;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; justify-content:center; padding:24px 12px;
+  }
+  .app{width:100%; max-width:1040px; background:var(--card); border-radius:16px;
+       box-shadow:0 20px 50px rgba(16,38,84,.12); overflow:hidden;}
+  /* 顶部标题栏（对应原视频中的深色头栏） */
+  .titlebar{
+    background:linear-gradient(120deg,#16233f,#2a4986);
+    color:#fff; padding:18px 26px 14px;
+  }
+  .titlebar h1{font-size:21px; font-weight:700; letter-spacing:.5px;}
+  .titlebar h1 em{font-style:normal; color:#ffd23d; font-weight:800;}
+  .titlebar p{font-size:12.5px; opacity:.9; margin-top:5px; line-height:1.7; color:#c9d6ef;}
+  .titlebar p b.r{color:#ff8fa0;} .titlebar p b.g{color:#7ce0ab;} .titlebar p b.b{color:#7ab8ff;}
+  /* 场景页签 */
+  .tabs{display:flex; flex-wrap:wrap; gap:8px; padding:14px 20px; background:#fff; border-bottom:1px solid var(--line);}
+  .tab{
+    border:1px solid var(--line); background:#f8fafc; color:#334155;
+    padding:7px 14px; border-radius:20px; font-size:13px; cursor:pointer;
+    transition:all .18s; user-select:none;
+  }
+  .tab:hover{background:#eef2ff; border-color:#b8c4e8;}
+  .tab.active{background:var(--titlebar); color:#fff; border-color:var(--titlebar); font-weight:600;}
+  .tab.active .fn{border-bottom:1px dashed rgba(255,255,255,.6);}
+  /* 画布区 */
+  .stage{position:relative; background:#fff; padding:6px 20px 0;}
+  canvas{display:block; width:100%; border-radius:10px; background:linear-gradient(180deg,#fdfdfe,#f7f9fc);}
+  .legend{
+    display:flex; gap:18px; flex-wrap:wrap; font-size:12.5px; color:var(--muted);
+    padding:6px 2px 4px; user-select:none;
+  }
+  .legend i{display:inline-block; width:14px; height:14px; border-radius:3px; vertical-align:-2px; margin-right:6px;}
+  .legend .lg-r i{background:rgba(255,41,65,.25); border:2px solid var(--eps);}
+  .legend .lg-g i{background:rgba(0,166,83,.22); border:2px solid var(--delta);}
+  .legend .lg-b i{background:var(--curve);}
+  /* 控制面板 */
+  .panel{padding:14px 24px 22px; background:#fbfcff; border-top:1px solid var(--line);}
+  .ctl-row{display:flex; align-items:center; gap:12px; padding:7px 0; flex-wrap:wrap;}
+  .ctl-label{font-size:13.5px; font-weight:700; min-width:96px;}
+  .ctl-label .sym{font-size:17px;}
+  .ctl-label.r{color:var(--eps);} .ctl-label.g{color:var(--delta);} .ctl-label.a{color:#7b5cff;}
+  .slider-wrap{flex:1; min-width:220px; display:flex; align-items:center; gap:10px;}
+  input[type=range]{flex:1; height:6px; -webkit-appearance:none; appearance:none; border-radius:3px; outline:none; cursor:pointer;}
+  input[type=range].r{background:linear-gradient(90deg,#ffc2c9,var(--eps));}
+  input[type=range].g{background:linear-gradient(90deg,#b9eccf,var(--delta));}
+  input[type=range].a{background:linear-gradient(90deg,#cfc2ff,#7b5cff);}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
+    border:3px solid #fff; box-shadow:0 1px 5px rgba(0,0,0,.3); cursor:grab;
+  }
+  input[type=range].r::-webkit-slider-thumb{background:var(--eps);}
+  input[type=range].g::-webkit-slider-thumb{background:var(--delta);}
+  input[type=range].a::-webkit-slider-thumb{background:#7b5cff;}
+  input[type=range]:disabled{opacity:.35; cursor:not-allowed;}
+  .val{
+    min-width:74px; text-align:center; font-variant-numeric:tabular-nums;
+    font-size:14px; font-weight:700; padding:5px 8px; border-radius:8px; background:#fff;
+    border:1px solid var(--line); color:var(--text);
+  }
+  .val.r{border-color:#ffc2c9; color:var(--eps);}
+  .val.g{border-color:#b9eccf; color:var(--delta);}
+  .val.a{border-color:#cfc2ff; color:#7b5cff;}
+  .hint-toggle{margin-left:auto; font-size:12.5px; color:var(--muted); cursor:pointer; user-select:none;
+               background:#fff; border:1px solid var(--line); padding:6px 12px; border-radius:16px;}
+  .hint-toggle:hover{border-color:#b8c4e8;}
+  /* 状态条 */
+  .status{
+    margin-top:12px; padding:13px 18px; border-radius:12px;
+    font-size:14.5px; line-height:1.6; font-weight:600;
+    background:#f8fafc; border:1px solid var(--line); min-height:58px;
+    transition:background .25s;
+  }
+  .status .ico{font-size:20px; margin-right:4px;}
+  .status.ok{background:#edfdf3; border-color:#b9eccf; color:#0d7a3f;}
+  .status.bad{background:#fff0f2; border-color:#ffc2c9; color:#d1193b;}
+  .status.demo{background:#eef3ff; border-color:#c4d6f0; color:#23437d;}
+  .status .sub{display:block; font-size:12px; font-weight:400; opacity:.85; margin-top:3px;}
+  .actions{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;}
+  .btn{
+    border:none; padding:11px 22px; border-radius:10px; font-size:14px; font-weight:700;
+    cursor:pointer; background:var(--titlebar); color:#fff; transition:all .2s;
+    box-shadow:0 4px 12px rgba(27,42,74,.25);
+  }
+  .btn:hover{transform:translateY(-1px); box-shadow:0 6px 16px rgba(27,42,74,.32);}
+  .btn.stop{background:#c62b48;}
+  .btn.secondary{background:#fff; color:var(--titlebar); border:1.5px solid #cdd8ee; box-shadow:none;}
+  .btn.secondary:hover{border-color:var(--titlebar);}
+  .notice{
+    font-size:12px; color:var(--muted); margin-top:10px; line-height:1.7;
+    background:#f6f8fd; border-left:3px solid #c4d1ef; padding:8px 12px; border-radius:0 8px 8px 0;
+  }
+  @media (max-width:640px){
+    .panel{padding:12px 14px;}
+    .titlebar{padding:14px 16px;}
+    .ctl-label{min-width:70px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="titlebar">
+    <h1>ε–δ 极限可视化 <em>·</em> 为什么非要找 <span style="font-size:26px; color:#ffd23d">δ</span>？</h1>
+    <p><b class="r">红色 = 水平 ε 带 (A−ε, A+ε) —— 误差，是要求</b>　·　<b class="g">绿色 = 垂直 δ 带 (x₀−δ, x₀+δ) —— 范围，是回应</b>　·　<b class="b">蓝色 = 函数曲线</b></p>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="stage">
+    <canvas id="cv"></canvas>
+    <div class="legend">
+      <span class="lg-b"><i></i>f(x) 曲线</span>
+      <span class="lg-r"><i></i>ε 带：|f(x)−A|&lt;ε</span>
+      <span class="lg-g"><i></i>δ 带：0&lt;|x−x₀|&lt;δ</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ctl-row">
+      <span class="ctl-label r"><span class="sym">ε</span> 误差带</span>
+      <div class="slider-wrap">
+        <input type="range" id="eps" class="r" min="0.05" max="1.5" step="0.01" value="0.8">
+        <span class="val r" id="epsVal">0.80</span>
+      </div>
+    </div>
+    <div class="ctl-row">
+      <span class="ctl-label g"><span class="sym">δ</span> 范围带</span>
+      <div class="slider-wrap">
+        <input type="range" id="del" class="g" min="0.02" max="1.6" step="0.01" value="1.2">
+        <span class="val g" id="delVal">1.20</span>
+      </div>
+      <button class="hint-toggle" id="toggleHint" title="显示/隐藏判定说明">ℹ 判定说明</button>
+    </div>
+    <div class="ctl-row" id="aRow" style="display:none;">
+      <span class="ctl-label a"><span class="sym">A</span> 猜的极限值</span>
+      <div class="slider-wrap">
+        <input type="range" id="a" class="a" min="2" max="3" step="0.01" value="2.5">
+        <span class="val a" id="aVal">2.50</span>
+      </div>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <div class="actions">
+      <button class="btn" id="demoBtn">▶ 自动演示（还原原视频流程）</button>
+      <button class="btn secondary" id="resetBtn">↺ 重置</button>
+    </div>
+    <div class="notice" id="notice"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+ * ε-δ 极限定义可视化 —— 复刻自《高等数学可视化 · ε-δ里的δ到底在找什么》
+ * 场景：
+ *  1-3 极限存在的三个例子（可调 ε、δ：δ 太大曲线冲出红带，调小即可框住）
+ *  4   反例·跳跃间断（无论 A 取多少，总有一边冲出红带）
+ *  5   反例·振荡 sin(1/x)（任何 δ 都框不住 → 极限不存在）
+ * ============================================================ */
+
+/* ---------- 通用工具 ---------- */
+const $ = id => document.getElementById(id);
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const fmt = v => (Math.round(v * 1000) / 1000).toFixed(3);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------- 场景定义（原文三个有极限例子 + 两个反例） ---------- */
+const scenes = [
+  {
+    id: "s1",
+    label: "f(x) = x + 0.5·sin 2x",
+    fx: x => x + 0.5 * Math.sin(2 * x),
+    x0: 1, A: 1 + 0.5 * Math.sin(2),
+    xRange: [-1.5, 3.5], yRange: [-0.7, 3.4],
+    display: "x + 0.5·sin(2x)",
+    hasA: false,
+    desc: "在 x₀=1 附近有极限，A ≈ 1.455"
+  },
+  {
+    id: "s2",
+    label: "f(x) = x² − 2x + 2",
+    fx: x => (x - 1) * (x - 1) + 1,
+    x0: 1, A: 1,
+    xRange: [-1.0, 3.0], yRange: [-1.2, 3.4],
+    display: "x² − 2x + 2",
+    hasA: false,
+    desc: "在 x₀=1 附近有极限，A = 1"
+  },
+  {
+    id: "s3",
+    label: "f(x) = (x²−1)/(x−1)",
+    fx: x => x + 1,
+    x0: 1, A: 2,
+    xRange: [-1.0, 3.0], yRange: [-0.6, 3.8],
+    display: "(x²−1)/(x−1)，x≠1",
+    hasA: false,
+    hole: true,
+    desc: "在 x₀=1 的去心邻域内有极限，A = 2（x=1 处无定义，用空心圈标出）"
+  },
+  {
+    id: "s4",
+    label: "反例① 跳跃间断",
+    fxjump: x => (x < 1 ? x + 1 : x + 2),
+    x0: 1,
+    xRange: [-0.6, 2.6], yRange: [0.2, 4.4],
+    display: "x&lt;1: x+1；x&gt;1: x+2",
+    hasA: true, aMin: 2, aMax: 3, aInit: 2.5,
+    desc: "左极限 2 ≠ 右极限 3，中间有个台阶"
+  },
+  {
+    id: "s5",
+    label: "反例② 振荡 sin(1/x)",
+    fxosc: x => Math.sin(1 / x),
+    x0: 0,
+    xRange: [-0.45, 0.45], yRange: [-1.45, 1.45],
+    display: "sin(1/x)",
+    hasA: true, aMin: -1, aMax: 1, aInit: 0,
+    osc: true,
+    desc: "x→0 时在 −1 和 1 之间无限振荡，永远停不下来"
+  }
+];
+
+/* ---------- 状态 ---------- */
+const state = {
+  scene: 0,
+  eps: 0.8,
+  del: 1.2,
+  A: 2.5,
+  drawProgress: 1,       // 曲线绘制进度 0..1（入场动画）
+  drawing: false,
+  demo: null,            // 演示任务句柄
+  hintVisible: true
+};
+
+const cv = $("cv");
+const ctx = cv.getContext("2d");
+cv.width = 1000; cv.height = 560;
+
+/* 绘图区域留白：左刻度、右下标签、顶部标题与坐标 */
+const P = { l: 66, r: 30, t: 26, b: 46 };
+
+const scene = () => scenes[state.scene];
+const eps = () => state.eps;
+const del = () => state.del;
+const A = () => scene().hasA ? state.A : scene().A;
+
+/* ---------- 坐标映射 ---------- */
+function x2p(x) {
+  const s = scene();
+  const w = (s.xRange[1] - s.xRange[0]) / (cv.width - P.l - P.r);
+  return P.l + (x - s.xRange[0]) / w;
+}
+function y2p(y) {
+  const s = scene();
+  const h = (s.yRange[1] - s.yRange[0]) / (cv.height - P.t - P.b);
+  return P.t + (s.yRange[1] - y) / h;
+}
+function px2x(px) {
+  const s = scene();
+  return s.xRange[0] + (px - P.l) / (cv.width - P.l - P.r) * (s.xRange[1] - s.xRange[0]);
+}
+
+/* ---------- 判定：δ 带内曲线相对 ε 带的最大越界量 ---------- */
+function evaluate() {
+  const s = scene();
+  const a = A(), e = eps(), d = del();
+  let worst = 0, worstVal = null, worstX = null;
+  const x0 = s.x0;
+  const drawL = Math.max(s.xRange[0], x0 - d);
+  const drawR = Math.min(s.xRange[1], x0 + d);
+  const N = 900;
+  for (let i = 0; i <= N; i++) {
+    const x = drawL + (drawR - drawL) * i / N;
+    if (Math.abs(x - x0) < 1e-9) continue;          // 去心
+    if (s.osc) { if (Math.abs(x) < 1e-6) continue; }
+    let y;
+    if (s.fx) y = s.fx(x);
+    else if (s.fxjump) y = s.fxjump(x);
+    else if (s.fxosc) y = s.fxosc(x);
+    if (!isFinite(y)) continue;
+    const dev = Math.abs(y - a);
+    if (dev > worst) { worst = dev; worstVal = y; worstX = x; }
+  }
+  return { ok: worst <= e + 1e-9, worst, worstVal, worstX, e, a, d };
+}
+
+/* ---------- 状态条渲染 ---------- */
+function renderStatus() {
+  const s = scene();
+  const st = $("status");
+  if (s.osc) {
+    st.className = "status bad";
+    st.innerHTML = '<span class="ico">✗</span>框不住！<span style="color:#0a66f0">sin(1/x)</span> 在 −1 ~ 1 之间永远振荡——<br>'
+      + '<span class="sub">无论 A 取多少、δ 取多小，δ 带里总有函数值跳出任意 ε 带（例如 x=1/(π/2+kπ) 处取到 ±1）。"晃"本身就是问题，所以极限不存在。</span>';
+    return;
+  }
+  if (s.id === "s4") {
+    st.className = "status bad";
+    st.innerHTML = '<span class="ico">✗</span>无论如何都框不住！（左支趋向 2，右支趋向 3）<br>'
+      + '<span class="sub">红带宽度只有 2ε=' + fmt(2 * eps()) + '，装不下左右两支 ≈1 的落差：A 取 2 右边冲出，取 3 左边冲出，取 2.5 两边都冲出。找不到这样的 δ，极限不存在。</span>';
+    return;
+  }
+  const j = evaluate();
+  if (j.ok) {
+    st.className = "status ok";
+    st.innerHTML = '<span class="ico">✓</span>框住了！绿带 (x₀−δ, x₀+δ) 内的曲线全部落在红带 (A−ε, A+ε) 内。'
+      + '<span class="sub">最大偏差 |f(x)−A| ≈ ' + fmt(j.worst) + ' &lt; ε = ' + fmt(eps()) + '，这个 δ 对当前的 ε 有效。</span>';
+  } else {
+    st.className = "status bad";
+    st.innerHTML = '<span class="ico">✗</span>δ 太大！曲线冲出红带了（最远处 |f(x)−A| ≈ ' + fmt(j.worst) + ' &gt; ε = ' + fmt(eps()) + '）'
+      + '<span class="sub">请调小 δ，把绿带收紧；或适当放宽 ε。调节滑块试试——临界点就是"对任意 ε 存在 δ"的含义。</span>';
+  }
+}
+
+/* ---------- 绘制 ---------- */
+function drawGrid() {
+  const s = scene();
+  ctx.strokeStyle = "#eef1f6";
+  ctx.lineWidth = 1;
+  ctx.fillStyle = "#8a94a6";
+  ctx.font = "12px 'Segoe UI', 'PingFang SC', sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  const x0p = x2p(s.x0);
+  // 竖网格
+  let step = niceStep((s.xRange[1] - s.xRange[0]) / 12);
+  for (let x = Math.ceil(s.xRange[0] / step) * step; x <= s.xRange[1] + 1e-9; x += step) {
+    const px = x2p(x);
+    ctx.beginPath(); ctx.moveTo(px, P.t); ctx.lineTo(px, cv.height - P.b);
+    ctx.strokeStyle = (Math.abs(x - s.x0) < 1e-9) ? "#cdd6e6" : "#eef1f6";
+    ctx.stroke();
+    ctx.fillText(tick(x), px, cv.height - P.b + 6);
+  }
+  // 横网格
+  step = niceStep((s.yRange[1] - s.yRange[0]) / 8);
+  for (let y = Math.ceil(s.yRange[0] / step) * step; y <= s.yRange[1] + 1e-9; y += step) {
+    const py = y2p(y);
+    ctx.beginPath(); ctx.moveTo(P.l, py); ctx.lineTo(cv.width - P.r, py);
+    ctx.strokeStyle = (Math.abs(y) < 1e-9) ? "#d4dbe8" : "#eef1f6";
+    ctx.stroke();
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    ctx.fillText(tick(y), P.l - 8, py);
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+  }
+}
+function niceStep(raw) {
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const m = raw / p;
+  return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p;
+}
+function tick(v) {
+  const a = Math.abs(v);
+  const r = a < 10 ? (Math.round(v * 100) / 100).toString() : Math.round(v).toString();
+  return r;
+}
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+/* ε 红带 / δ 绿带 */
+function drawBands() {
+  const s = scene();
+  const a = A(), e = eps(), d = del();
+  const w = cv.width - P.l - P.r, h = cv.height - P.t - P.b;
+  const x0p = x2p(s.x0), ap = y2p(a);
+  const yUpper = y2p(clamp(a + e, s.yRange[0], s.yRange[1]));
+  const yLower = y2p(clamp(a - e, s.yRange[0], s.yRange[1]));
+  const xL = x2p(clamp(s.x0 - d, s.xRange[0], s.xRange[1]));
+  const xR = x2p(clamp(s.x0 + d, s.xRange[0], s.xRange[1]));
+
+  ctx.save();
+  // ---------- 水平 ε 红带 ----------
+  ctx.fillStyle = "rgba(255,41,65,.13)";
+  ctx.fillRect(P.l, yUpper, w, Math.max(0, yLower - yUpper));
+  ctx.strokeStyle = "rgba(255,41,65,.85)";
+  ctx.lineWidth = 1.6;
+  ctx.setLineDash([]);
+  [yUpper, yLower].forEach(yy => {
+    ctx.beginPath(); ctx.moveTo(P.l, yy); ctx.lineTo(P.l + w, yy); ctx.stroke();
+  });
+  // 红带标签
+  ctx.fillStyle = "#ff2941";
+  ctx.font = "bold 13px 'Segoe UI', 'PingFang SC', sans-serif";
+  ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+  ctx.fillText("A+ε", P.l + 6, yUpper - 3);
+  ctx.textBaseline = "top";
+  ctx.fillText("A−ε", P.l + 6, yLower + 3);
+
+  // ---------- 垂直 δ 绿带 ----------
+  ctx.fillStyle = "rgba(0,166,83,.12)";
+  ctx.fillRect(xL, P.t, Math.max(0, xR - xL), h);
+  ctx.strokeStyle = "rgba(0,166,83,.85)";
+  ctx.lineWidth = 1.6;
+  [xL, xR].forEach(px => {
+    ctx.beginPath(); ctx.moveTo(px, P.t); ctx.lineTo(px, P.t + h); ctx.stroke();
+  });
+  ctx.fillStyle = "#00a653";
+  ctx.textAlign = "left"; ctx.textBaseline = "top";
+  ctx.fillText("x₀−δ", Math.min(xL, P.l + w - 34), P.t + 4);
+  ctx.fillText("x₀+δ", Math.min(xR, P.l + w - 34), P.t + 18);
+
+  // ---------- 中心参考线（细虚线）：x=x₀、y=A ----------
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = "rgba(26,34,51,.35)";
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x0p, P.t); ctx.lineTo(x0p, P.t + h); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(P.l, ap); ctx.lineTo(P.l + w, ap); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+/* 蓝色函数曲线（按进度 reveal；x=0 无定义处断开） */
+function drawCurve() {
+  const s = scene();
+  const prog = state.drawProgress;
+  const x0 = s.x0;
+  const N = s.osc ? cv.width * 3 : 1400;
+  const xL = s.xRange[0], xR = s.xRange[1];
+  const upTo = xL + (xR - xL) * prog;
+
+  ctx.save();
+  ctx.lineWidth = s.osc ? 1.1 : 2.6;
+  ctx.strokeStyle = "#0a66f0";
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  let penDown = false;
+  for (let i = 0; i <= N; i++) {
+    const x = upTo * i / N + xL * (1 - i / N);
+    if (x > upTo + 1e-12) break;
+    let y;
+    if (s.fx) y = s.fx(x);
+    else if (s.fxjump) y = s.fxjump(x);
+    else if (s.fxosc) y = s.fxosc(x);
+    let valid = isFinite(y) && y > s.yRange[0] - 0.05 && y < s.yRange[1] + 0.05;
+    if (s.osc && Math.abs(x) < 1.5e-5) valid = false;   // x=0 无定义
+    const px = x2p(x), py = valid ? y2p(y) : 0;
+    if (valid && penDown) ctx.lineTo(px, py);
+    else if (valid) { ctx.moveTo(px, py); penDown = true; }
+    else penDown = false;
+  }
+  ctx.stroke();
+
+  // 跳跃 / 空心圈（无定义点标记）
+  if (s.id === "s3") {
+    const px = x2p(1), py = y2p(2);
+    ctx.fillStyle = "#fff";
+    ctx.strokeStyle = "#0a66f0";
+    ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  }
+  if (s.id === "s4") {
+    const px = x2p(1);
+    const pyL = y2p(2), pyR = y2p(3);
+    ctx.fillStyle = "#fff"; ctx.strokeStyle = "#0a66f0"; ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.arc(px, pyL, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(px, pyR, 5, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* 聚点 / 极限值标记 */
+function drawMarks() {
+  const s = scene();
+  const a = A();
+  const x0p = x2p(s.x0), ap = y2p(a);
+  ctx.save();
+  // (x0, A) 目标点
+  ctx.fillStyle = "#7b5cff";
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(x0p, ap, 6.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // x₀ 标记
+  ctx.fillStyle = "#1a2233";
+  ctx.font = "bold 14px 'Segoe UI', 'PingFang SC', sans-serif";
+  ctx.textAlign = "left"; ctx.textBaseline = "top";
+  ctx.fillText("x₀ = " + (s.x0 === 0 ? 0 : s.x0 === 1 ? 1 : s.x0), x0p + 8, ap + 6);
+  // A 值
+  ctx.fillStyle = "#7b5cff";
+  ctx.fillText("A ≈ " + fmt(a), P.l + 6, ap + 8);
+  // 场景描述（画布右上角）
+  ctx.fillStyle = "rgba(26,34,51,.78)";
+  ctx.font = "13px 'PingFang SC', sans-serif";
+  ctx.textAlign = "right"; ctx.textBaseline = "top";
+  ctx.fillText("f(x) = " + s.display, cv.width - P.r - 10, P.t + 4);
+  ctx.restore();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  drawGrid();
+  drawBands();
+  drawCurve();
+  drawMarks();
+}
+
+/* ---------- 控件绑定 ---------- */
+function buildTabs() {
+  const tabs = $("tabs");
+  tabs.innerHTML = "";
+  scenes.forEach((s, i) => {
+    const b = document.createElement("div");
+    b.className = "tab" + (i === state.scene ? " active" : "");
+    b.innerHTML = '<span class="fn">' + s.label + '</span>';
+    b.onclick = () => { if (state.demo) stopDemo(); selectScene(i); };
+    tabs.appendChild(b);
+  });
+}
+
+function selectScene(i) {
+  state.scene = i;
+  const s = scenes[i];
+  // 重置参数到演示友好的默认值
+  state.eps = 0.8;
+  state.del = s.osc ? 0.12 : 1.2;
+  state.A = s.hasA ? ((s.aMin + s.aMax) / 2) : s.A;
+  syncInputs();
+  // 入口曲线动画
+  animateCurve();
+  if (s.id === "s4") {
+    // 跳跃反例：默认 A 直接展示 2.5（两边都冲出）
+    state.A = 2.5;
+    syncInputs();
+  }
+  buildTabs();
+  renderStatus();
+  draw();
+  $("notice").innerHTML = s.desc;
+}
+
+function animateCurve() {
+  state.drawing = true;
+  const t0 = performance.now();
+  const dur = 900;
+  function tick(now) {
+    state.drawProgress = clamp((now - t0) / dur, 0, 1);
+    draw();
+    if (state.drawProgress < 1) requestAnimationFrame(tick);
+    else state.drawing = false;
+  }
+  requestAnimationFrame(tick);
+}
+
+function syncInputs() {
+  const s = scene();
+  $("eps").value = state.eps;
+  $("del").value = state.del;
+  $("epsVal").textContent = fmt(state.eps);
+  $("delVal").textContent = fmt(state.del);
+  const aRow = $("aRow");
+  if (s.hasA) {
+    aRow.style.display = "flex";
+    $("a").min = s.aMin; $("a").max = s.aMax;
+    $("a").value = state.A;
+    $("aVal").textContent = fmt(state.A);
+  } else {
+    aRow.style.display = "none";
+  }
+}
+
+/* ---------- 事件 ---------- */
+$("eps").addEventListener("input", e => {
+  state.eps = parseFloat(e.target.value);
+  $("epsVal").textContent = fmt(state.eps);
+  renderStatus();
+  draw();
+});
+$("del").addEventListener("input", e => {
+  state.del = parseFloat(e.target.value);
+  $("delVal").textContent = fmt(state.del);
+  renderStatus();
+  draw();
+});
+$("a").addEventListener("input", e => {
+  state.A = parseFloat(e.target.value);
+  $("aVal").textContent = fmt(state.A);
+  renderStatus();
+  draw();
+});
+$("resetBtn").onclick = () => {
+  if (state.demo) stopDemo();
+  selectScene(state.scene);
+  renderStatus();
+  draw();
+};
+$("toggleHint").onclick = () => {
+  const n = $("notice");
+  state.hintVisible = !state.hintVisible;
+  n.style.display = state.hintVisible ? "" : "none";
+};
+/* ---------- 自动演示（还原原视频流程） ---------- */
+function stopDemo() {
+  if (state.demo) state.demo.stop = true;
+}
+
+async function comment(text, ms, cls) {
+  const st = $("status");
+  st.className = "status " + (cls || "demo");
+  st.innerHTML = '<span class="ico">🎬</span>' + text;
+  await sleep(ms);
+}
+
+/* 平滑驱动一个滑块（state.del / state.eps），每步刷新画面 */
+async function tweenVal(key, from, to, ms, token) {
+  const t0 = performance.now();
+  while (true) {
+    if (token.stop) return;
+    const t = clamp((performance.now() - t0) / ms, 0, 1);
+    const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    state[key] = from + (to - from) * ease;
+    syncInputs();
+    renderStatus();
+    draw();
+    if (t >= 1) return;
+    await sleep(34);
+  }
+}
+
+async function tweenATo(v, token) {
+  const from = state.A;
+  const t0 = performance.now();
+  while (true) {
+    if (token.stop) return;
+    const t = clamp((performance.now() - t0) / 1400, 0, 1);
+    const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    state.A = from + (v - from) * ease;
+    syncInputs();
+    renderStatus();
+    draw();
+    if (t >= 1) return;
+    await sleep(34);
+  }
+}
+
+async function runDemo() {
+  const token = { stop: false };
+  state.demo = token;
+  const b = $("demoBtn");
+  b.textContent = "■ 停止演示";
+  b.classList.add("stop");
+
+  try {
+    /* 阶段 1-3：三个极限存在的例子 */
+    for (let si = 0; si < 3; si++) {
+      if (token.stop) return;
+      selectScene(si);
+      const labels = ["例① f(x)=x+0.5·sin 2x", "例② f(x)=x²−2x+2", "例③ f(x)=(x²−1)/(x−1)"][si];
+      await comment(labels + "：x₀=1 附近有极限。固定 ε=0.8，先给一个 δ=1.35 —— 绿带太宽，曲线冲出红带。<br>"
+        + "<span class='sub'>这不是“没调好”，是 δ 太大 — 超出的量 = 曲线“跑出去”的部分。</span>", 2600, "bad");
+      if (token.stop) return;
+      await tweenVal("del", 1.35, 0.28, 3600, token);
+      if (token.stop) return;
+      renderStatus();
+      await comment("把 δ 慢慢收紧……整段曲线终于被框进红带 ✅ 这个 δ 对当前 ε 有效。", 2200, "ok");
+      if (token.stop) return;
+
+      /* ε 收紧，δ 必须跟随 */
+      await tweenVal("eps", 0.8, 0.28, 1500, token);
+      if (token.stop) return;
+      renderStatus();
+      await comment("现在把 ε 调小 —— 误差要求更严，同样的 δ 又不够了：曲线再次冲出红带。", 2000, "bad");
+      if (token.stop) return;
+      await tweenVal("del", 0.28, 0.11, 2800, token);
+      if (token.stop) return;
+      renderStatus();
+      await comment("ε 越小，找到的 δ 就越小 —— 这就是“对任意 ε，存在 δ”里那层依赖：ε 在前、δ 在后，顺序不能反。", 2100, "ok");
+    }
+    if (token.stop) return;
+
+    /* 阶段 4：跳跃间断反例 */
+    selectScene(3);
+    if (token.stop) return;
+    await comment("反例①　跳跃间断：x&lt;1 时 f(x)=x+1，x&gt;1 时 f(x)=x+2。左右两支差 1，中间一个台阶 —— 不允许跳过 x=1，必须同时照顾左右两边。", 3000, "bad");
+    if (token.stop) return;
+    await tweenATo(2, token);
+    if (token.stop) return;
+    await comment("取 A=2（贴近左支）：红带盖住左边，右边整支冲出带外。", 2200, "bad");
+    if (token.stop) return;
+    await tweenATo(3, token);
+    if (token.stop) return;
+    await comment("取 A=3（贴近右支）：盖住右边，左边整支冲出带外。", 2200, "bad");
+    if (token.stop) return;
+    await tweenATo(2.5, token);
+    if (token.stop) return;
+    await comment("取 A=2.5：带子夹在中间，两边同时冲出。红带宽 2ε 装不下差 1 的两截 —— 无论 A 取多少，总有一边跑出去 ⇒ 找不到这样的 δ，极限不存在。", 3600, "bad");
+    if (token.stop) return;
+
+    /* 阶段 5：振荡反例 */
+    selectScene(4);
+    if (token.stop) return;
+    await comment("反例②　振荡：f(x)=sin(1/x)。x 越靠近 0，1/x 越大，振荡越密 —— 到 0 附近几乎涂成一片蓝。", 3600, "bad");
+    if (token.stop) return;
+    await tweenVal("del", 0.12, 0.02, 3000, token);
+    if (token.stop) return;
+    await comment("把 δ 收到最小档：绿带里照样塞满无数个 +1 和 −1。你给多小的 ε 带，它都能跳出去 —— 晃本身就是问题，极限不存在。", 3800, "bad");
+    if (token.stop) return;
+
+    comment("🎉 演示结束。一句话总结：ε 是误差（要求），δ 是范围（回应）；对任意 ε 都能找到对应的 δ，极限才存在 —— 这就是“为什么非要找 δ”。", 2500, "ok");
+  } finally {
+    state.demo = null;
+    b.textContent = "▶ 自动演示（还原原视频流程）";
+    b.classList.remove("stop");
+  }
+}
+
+$("demoBtn").onclick = () => {
+  if (state.demo) { stopDemo(); return; }
+  runDemo();
+};
+
+/* ---------- 初始化 ---------- */
+selectScene(0);
+renderStatus();
+draw();
+</script>
+</body>
+</html>

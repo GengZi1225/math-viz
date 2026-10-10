@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>傅里叶级数可视化 · 用正弦波拼出方波</title>
+<style>
+  :root{
+    --bg:#0a1428; --card:#0d1b3a; --panel:#0f2148;
+    --title1:#0a1428; --title2:#1e3a6e;
+    --orange:#ff9f2e; --gold:#ffd23d; --red:#ff6b6b; --blue:#67b0f6; --cyan:#4fd6e0;
+    --text:#e8eff9; --muted:#8fa3c4; --line:#27407a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    background:#050d1f; color:var(--text);
+    display:flex; justify-content:center; padding:24px 12px;
+  }
+  .app{width:100%; max-width:1120px; background:var(--card); border-radius:16px;
+       border:1px solid #1c3a72; box-shadow:0 24px 60px rgba(0,0,0,.5); overflow:hidden;}
+  .titlebar{
+    background:linear-gradient(120deg,var(--title1),var(--title2));
+    color:#fff; padding:16px 26px 12px; border-bottom:1px solid #27407a;
+  }
+  .titlebar h1{font-size:21px; font-weight:700; letter-spacing:.5px;}
+  .titlebar h1 em{font-style:normal; color:var(--gold); font-weight:800;}
+  .titlebar p{font-size:12.5px; opacity:.88; margin-top:6px; color:#a9c2ee; line-height:1.7;}
+  .titlebar p b.o{color:#ffb463;}
+  .titlebar .formula{margin-top:8px; font-size:14px; color:#e6ecfb; line-height:1.9;
+     background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16);
+     padding:8px 14px; border-radius:9px; display:inline-block;}
+  .titlebar .formula b{color:var(--orange);}
+  .titlebar .formula .z{color:#5d73a0;}
+  /* 画布 */
+  .stage{position:relative; padding:12px 20px 0;}
+  canvas{display:block; width:100%; border-radius:12px; background:linear-gradient(180deg,#0e2148,#081229); border:1px solid #1c3a72; cursor:crosshair;}
+  .legend{display:flex; gap:18px; flex-wrap:wrap; font-size:12.5px; color:#a9c2ee; padding:7px 2px 2px; user-select:none;}
+  .legend i{display:inline-block; width:14px; height:14px; border-radius:3px; vertical-align:-2px; margin-right:6px;}
+  .legend .lg-s i{background:var(--orange);}
+  .legend .lg-f i{background:transparent; border:2px dashed #b9cef2; border-radius:2px;}
+  .legend .lg-z i{border:2px solid rgba(255,255,255,.7); border-radius:50%; background:transparent;}
+  /* 公式与系数 */
+  .info{padding:12px 20px 0; display:flex; flex-wrap:wrap; gap:12px;}
+  .formula-box{
+    flex:1.4; min-width:320px; background:#0d1f42; border:1px solid #2c4a84; border-radius:12px;
+    padding:12px 16px; font-size:13.5px; line-height:2; color:#dfe9fb;
+  }
+  .formula-box .eq{font-size:15px;}
+  .formula-box .z{color:#5d73a0;}
+  .formula-box .b{font-weight:700; color:var(--orange);}
+  .formula-box small{color:#7f93b8;}
+  .note{
+    flex:1; min-width:260px; background:#0f2148; border:1px solid #27407a; border-radius:12px;
+    padding:12px 16px; font-size:12.5px; color:#a9c2ee; line-height:1.9;
+  }
+  .note b{color:var(--gold);}
+  .note .gib{color:#ffb463;}
+  /* 控制 */
+  .panel{padding:12px 24px 20px; background:#0c1a36; border-top:1px solid #1c385e;}
+  .ctl-row{display:flex; align-items:center; gap:14px; padding:8px 0; flex-wrap:wrap;}
+  .ctl-label{font-size:13.5px; font-weight:700; min-width:150px; color:#d7e3ff;}
+  .ctl-label .sym{font-size:17px; color:var(--gold);}
+  .slider-wrap{flex:1; min-width:220px; display:flex; align-items:center; gap:12px;}
+  input[type=range]{flex:1; height:6px; -webkit-appearance:none; appearance:none; border-radius:3px; outline:none; cursor:pointer;
+     background:linear-gradient(90deg,#7a5a28,var(--orange));}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:19px; height:19px; border-radius:50%;
+    background:var(--orange); border:3px solid #fff; box-shadow:0 1px 6px rgba(0,0,0,.4); cursor:grab;}
+  .val{min-width:150px; text-align:center; font-size:14.5px; font-weight:700; padding:6px 10px;
+     border-radius:9px; background:#0a1a38; border:1px solid #2c4a84; color:var(--gold); font-variant-numeric:tabular-nums;}
+  .status{
+    margin-top:12px; padding:13px 18px; border-radius:12px; font-size:14.5px; line-height:1.6;
+    font-weight:600; background:#0f2148; border:1px solid var(--line); min-height:52px; color:#cfe0ff;
+  }
+  .status .ico{font-size:19px; margin-right:4px;}
+  .status.demo{background:#122852; border-color:#33589e;}
+  .status .sub{display:block; font-size:12px; font-weight:400; opacity:.85; margin-top:3px;}
+  .actions{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;}
+  .btn{border:none; padding:11px 20px; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer;
+     background:linear-gradient(120deg,#2a5191,#1e3a6e); color:#fff; transition:all .18s; box-shadow:0 4px 14px rgba(0,0,0,.35);}
+  .btn:hover{transform:translateY(-1px); filter:brightness(1.1);}
+  .btn.stop{background:#8c2737;}
+  .btn.secondary{background:#152a55; color:#cfe0ff; border:1px solid #33589e; box-shadow:none;}
+  .btn.secondary:hover{border-color:#4a74c0;}
+  .notice{font-size:12px; color:#7f93b8; margin-top:10px; line-height:1.7; background:#0e1f42;
+     border-left:3px solid #33589e; padding:8px 12px; border-radius:0 8px 8px 0;}
+  @media (max-width:640px){ .panel{padding:10px 14px;} .ctl-label{min-width:90px;} }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="titlebar">
+    <h1>傅里叶级数可视化 <em>·</em> 用一堆正弦波，拼出一个方波</h1>
+    <div class="formula">
+      S<sub>N</sub>(x) = <b>4/π</b> [ sin x + <span class="z">(sin3x)/3</span> + <span class="z">(sin5x)/5</span> + … <span class="z">(sin(2N−1)x)/(2N−1)</span> ]
+      &nbsp;→&nbsp; 方波（所有 <span class="z">cos(nx)</span> 项为 <span class="z">0</span>）
+    </div>
+    <p>拖动滑块调<b class="o"> N </b>（正弦波个数）：N=1 圆滚滚 → N=5 出肩膀 → N=20 有棱角 → N=40 几乎和方波重合。把鼠标挪到波形上，会出现<b class="o">放大镜</b>，观察拐角处的<b class="o">吉布斯现象</b>。</p>
+  </div>
+
+  <div class="stage">
+    <canvas id="cv"></canvas>
+    <div class="legend">
+      <span class="lg-s"><i></i>部分和 S<sub>N</sub>(x)（正弦波的叠加）</span>
+      <span class="lg-f"><i></i>目标方波（参考线）</span>
+      <span class="lg-z"><i></i>悬停放大镜（看吉布斯现象）</span>
+    </div>
+  </div>
+
+  <div class="info">
+    <div class="formula-box">
+      <div class="eq">f<sub>方波</sub>(x) ≈ S<sub>N</sub>(x) = <span class="b">4/π</span> Σ<sub>k=1..N</sub> <span class="b">sin((2k−1)x) / (2k−1)</span></div>
+      展开式里只有奇次正弦项（1, 3, 5, 7, …）：
+      <div class="z">　　1·sin x ＋ (1/3)·sin 3x ＋ (1/5)·sin 5x ＋ (1/7)·sin 7x ＋ …</div>
+      各余弦项系数均为 <span class="z">0·cos(nx)</span>（灰色）——因为<b>方波是奇函数</b>，奇 × 偶（cos）= 奇，对称区间积分为 0。
+    </div>
+    <div class="note">
+      <b>玩法：</b>① 拖滑块——看橙色曲线一步步长出棱角；② 点自动播放——N 从 1~40 来回循环；③ 悬停放大镜——对准方波拐角，能看见 N 再大也消不掉的<b class="gib">过冲与抖动</b>（经典吉布斯现象：峰值约 1.18，比平台 1 高出约 18%；按跳跃幅度计约为 9%）。
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ctl-row">
+      <span class="ctl-label"><span class="sym">N</span> 用的正弦波个数</span>
+      <div class="slider-wrap">
+        <input type="range" id="N" min="1" max="40" step="1" value="1">
+        <span class="val" id="valN">N = 1</span>
+      </div>
+      <button class="btn" id="playBtn">▶ 自动播放（N：1→40 循环）</button>
+      <button class="btn secondary" id="resetBtn">↺ 重置</button>
+    </div>
+    <div class="status" id="status"></div>
+    <div class="notice" id="notice"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+ * 傅里叶级数可视化 —— 复刻自《傅里叶级数的可视化》
+ * 方波：f(x)=1 (0<x<π)，-1 (π<x<2π)
+ * 部分和：S_N = (4/π)·Σ sin((2k-1)x)/(2k-1)
+ * 功能：滑块 N 1~40 / 自动播放 / 悬停放大镜看吉布斯现象
+ * ============================================================ */
+
+const $ = id => document.getElementById(id);
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const state = { N: 1, play: null, hover: null };
+const cv = $("cv");
+const ctx = cv.getContext("2d");
+cv.width = 1040; cv.height = 520;
+
+const PI = Math.PI;
+const X0 = 0, X1 = 2 * PI;
+const P = { l: 64, r: 40, t: 36, b: 44 };
+
+/* 部分和 */
+function S_N(x, N) {
+  let s = 0;
+  for (let k = 1; k <= N; k++) s += Math.sin((2 * k - 1) * x) / (2 * k - 1);
+  return (4 / PI) * s;
+}
+
+/* 坐标映射 */
+function x2p(x) { return P.l + (x - X0) / (X1 - X0) * (cv.width - P.l - P.r); }
+function y2p(y) { return P.t + (1 - y) / 2 * (cv.height - P.t - P.b); }
+function px2x(px) { return X0 + (px - P.l) / (cv.width - P.l - P.r) * (X1 - X0); }
+
+/* ---------- 绘制 ---------- */
+function draw() {
+  const N = state.N;
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  const g = ctx.createLinearGradient(0, 0, 0, cv.height);
+  g.addColorStop(0, "#0e2148"); g.addColorStop(1, "#081229");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, cv.width, cv.height);
+
+  /* 网格 */
+  ctx.strokeStyle = "rgba(90,140,220,.09)";
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 8; i++) {
+    const y = P.t + (cv.height - P.t - P.b) * i / 8;
+    ctx.beginPath(); ctx.moveTo(P.l, y); ctx.lineTo(cv.width - P.r, y); ctx.stroke();
+  }
+  for (let i = 0; i <= 6; i++) {
+    const x = P.l + (cv.width - P.l - P.r) * i / 6;
+    ctx.beginPath(); ctx.moveTo(x, P.t); ctx.lineTo(x, cv.height - P.b); ctx.stroke();
+  }
+
+  /* y = ±1 参考与 x 轴 */
+  ctx.strokeStyle = "rgba(255,255,255,.18)";
+  ctx.setLineDash([3, 4]);
+  ctx.beginPath(); ctx.moveTo(P.l, y2p(1)); ctx.lineTo(cv.width - P.r, y2p(1)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(P.l, y2p(-1)); ctx.lineTo(cv.width - P.r, y2p(-1)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = "rgba(255,255,255,.28)";
+  ctx.beginPath(); ctx.moveTo(P.l, y2p(0)); ctx.lineTo(cv.width - P.r, y2p(0)); ctx.stroke();
+
+  /* 刻度标签 */
+  ctx.fillStyle = "#8fa3c4";
+  ctx.font = "13px 'Segoe UI','PingFang SC',sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  for (const [x, lab] of [[0, "0"], [PI, "π"], [2 * PI, "2π"]]) ctx.fillText(lab, x2p(x), cv.height - P.b + 6);
+  ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  ctx.fillText("+1", P.l - 8, y2p(1));
+  ctx.fillText("−1", P.l - 8, y2p(-1));
+
+  /* 目标方波（参考虚线） */
+  ctx.strokeStyle = "rgba(190,208,240,.55)";
+  ctx.lineWidth = 1.6;
+  ctx.setLineDash([7, 5]);
+  ctx.beginPath();
+  ctx.moveTo(x2p(0), y2p(1));
+  ctx.lineTo(x2p(PI), y2p(1));
+  ctx.moveTo(x2p(PI), y2p(-1));
+  ctx.lineTo(x2p(2 * PI), y2p(-1));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  /* 部分和曲线（橙色） */
+  ctx.beginPath();
+  const steps = 780;
+  let pen = false;
+  for (let i = 0; i <= steps; i++) {
+    const px = P.l + (cv.width - P.l - P.r) * i / steps;
+    const x = px2x(px);
+    const y = S_N(x, N);
+    const py = y2p(y);
+    if (py > P.t - 15 && py < cv.height - P.b + 15) {
+      if (pen) ctx.lineTo(px, py); else { ctx.moveTo(px, py); pen = true; }
+    } else pen = false;
+  }
+  ctx.strokeStyle = "#ff9f2e";
+  ctx.lineWidth = N <= 4 ? 3.4 : 2.6;
+  ctx.lineJoin = "round";
+  ctx.stroke();
+
+  /* 曲线发光制作 */
+  ctx.strokeStyle = "rgba(255,159,46,.25)";
+  ctx.lineWidth = 7;
+  ctx.stroke();
+
+  /* 顶标签 */
+  ctx.fillStyle = "#ffcf87";
+  ctx.font = "bold 18px 'PingFang SC',sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("方波 ≈ 前 " + N + " 项正弦波", P.l, 26);
+  ctx.fillStyle = "#8fa3c4";
+  ctx.font = "13px 'PingFang SC',sans-serif";
+  ctx.fillText("橙线是 S_N(x)=4/π·Σ sin((2k−1)x)/(2k−1)，虚线是真正的方波", P.l, 46);
+
+  /* ---------- 放大镜 ---------- */
+  if (state.hover) {
+    drawLoupe(state.hover.mx, state.hover.my);
+  }
+}
+
+/* 放大镜（观察吉布斯现象） */
+const Z = 3.4, R = 74;
+function drawLoupe(mx, my) {
+  const w = 2 * R / Z, h = 2 * R / Z;
+  let dx = mx + 26, dy = my + 26;
+  if (dx + R > cv.width) dx = mx - 26 - 2 * R;
+  if (dy + R > cv.height) dy = my - 26 - 2 * R;
+  ctx.save();
+  // 画出放大区域（clip 圆形）
+  ctx.beginPath();
+  ctx.arc(dx, dy, R, 0, 2 * PI);
+  ctx.clip();
+  const sx = clamp(mx - w / 2, 0, cv.width - w), sy = clamp(my - h / 2, 0, cv.height - h);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(cv, sx, sy, w, h, dx - R, dy - R, 2 * R, 2 * R);
+  // 十字准线
+  const lx = dx + (mx - sx) * (2 * R / w);
+  const ly = dy + (my - sy) * (2 * R / h);
+  ctx.strokeStyle = "rgba(255,255,255,.5)";
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(lx, dy - R); ctx.lineTo(lx, dy + R); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(dx - R, ly); ctx.lineTo(dx + R, ly); ctx.stroke();
+  ctx.restore();
+  // 圆环描边
+  ctx.beginPath();
+  ctx.arc(dx, dy, R, 0, 2 * PI);
+  ctx.strokeStyle = "rgba(255,255,255,.85)";
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  // 标签
+  ctx.fillStyle = "#ffd23d";
+  ctx.font = "bold 12px 'PingFang SC',sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("放大 " + Z + "×", dx, dy - R - 6);
+}
+
+/* ---------- 状态栏 ---------- */
+function renderStatus() {
+  const N = state.N;
+  const st = $("status");
+  let desc;
+  if (N === 1) desc = "只有一个正弦波：圆滚滚的波浪，离方波还很远，但周期和幅度已经对了。";
+  else if (N < 5) desc = "开始有“肩膀”的迹象：几个正弦波商量着往中间顶。";
+  else if (N < 20) desc = "肩膀和陡峭的趋势都出来了，有点方波的样子。";
+  else if (N < 40) desc = "棱角开始显现，中间平台基本平坦，两侧即将竖直。";
+  else desc = "几乎和方波完全重合（仍留有小毛刺：放大镜里能看到吉布斯过冲）。";
+  st.className = "status";
+  st.innerHTML = '<span class="ico">🟠</span>组合正弦波个数 N = <b>' + N + '</b>：' + desc
+    + '<span class="sub">把鼠标悬停在波形上可打开放大镜 —— 对准方波拐角，观察即使 N 很大依然存在的“过冲 + 抖动”（吉布斯现象：峰值约 1.18，比平台 1 高出约 18%）。</span>';
+}
+
+/* ---------- 事件 ---------- */
+$("N").addEventListener("input", e => {
+  if (state.play) stopPlay();
+  state.N = parseInt(e.target.value, 10);
+  syncInputs(); renderStatus(); draw();
+});
+$("resetBtn").onclick = () => {
+  if (state.play) stopPlay();
+  state.N = 1;
+  syncInputs(); renderStatus(); draw();
+};
+
+/* 放大镜事件 */
+cv.addEventListener("mousemove", ev => {
+  const rect = cv.getBoundingClientRect();
+  const mx = (ev.clientX - rect.left) / rect.width * cv.width;
+  const my = (ev.clientY - rect.top) / rect.height * cv.height;
+  state.hover = { mx, my };
+  draw();
+});
+cv.addEventListener("mouseleave", () => { state.hover = null; draw(); });
+cv.addEventListener("touchmove", ev => {
+  ev.preventDefault();
+  const rect = cv.getBoundingClientRect();
+  const t = ev.touches[0];
+  state.hover = { mx: (t.clientX - rect.left) / rect.width * cv.width, my: (t.clientY - rect.top) / rect.height * cv.height };
+  draw();
+}, { passive: false });
+
+function syncInputs() {
+  $("N").value = state.N;
+  $("valN").textContent = "N = " + state.N;
+}
+
+/* ---------- 自动播放 ---------- */
+function stopPlay() {
+  if (state.play) state.play.stop = true;
+}
+async function runPlay() {
+  const token = { stop: false };
+  state.play = token;
+  const b = $("playBtn");
+  b.textContent = "■ 停止播放";
+  b.classList.add("stop");
+  try {
+    while (!token.stop) {
+      for (let N = 1; N <= 40; N++) {
+        if (token.stop) return;
+        state.N = N;
+        syncInputs(); renderStatus(); draw();
+        await sleep(140);
+      }
+      for (let N = 39; N >= 1; N--) {
+        if (token.stop) return;
+        state.N = N;
+        syncInputs(); renderStatus(); draw();
+        await sleep(90);
+      }
+    }
+  } finally {
+    state.play = null;
+    b.textContent = "▶ 自动播放（N：1→40 循环）";
+    b.classList.remove("stop");
+  }
+}
+$("playBtn").onclick = () => {
+  if (state.play) { stopPlay(); return; }
+  runPlay();
+};
+/* ---------- 初始化 ---------- */
+$("notice").innerHTML = "操作提示：拖滑块改 N（1~40）、点“自动播放”看演变、鼠标悬停出放大镜。方波周期 2π，实线橙色为前 N 项部分和，虚线为目标方波。";
+syncInputs();
+renderStatus();
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数学思政 · 无穷小与无穷大 · 交互式微课</title>
+<style>
+  :root{
+    --bg:#0a1428; --card:#0d1b3a; --panel:#0f2148; --title1:#0a1428; --title2:#1e3a6e;
+    --orange:#ff9f2e; --gold:#ffd23d; --red:#ff6b6b; --blue:#67b0f6; --green:#5ee8a6;
+    --text:#e8eff9; --muted:#8fa3c4; --line:#27407a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:#050d1f;color:var(--text);
+       display:flex;justify-content:center;padding:18px 12px;}
+  .app{width:100%;max-width:1080px;background:var(--card);border-radius:16px;border:1px solid #1c3a72;
+       box-shadow:0 24px 60px rgba(0,0,0,.5);overflow:hidden;}
+  .titlebar{background:linear-gradient(120deg,var(--title1),var(--title2));color:#fff;
+       padding:13px 26px 11px;border-bottom:1px solid #27407a;}
+  .titlebar h1{font-size:21px;font-weight:700;}
+  .titlebar h1 em{font-style:normal;color:var(--gold);}
+  .titlebar p{font-size:12.5px;opacity:.9;color:#a9c2ee;margin-top:5px;line-height:1.6;}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;padding:12px 20px 0;}
+  .tab{padding:8px 16px;border-radius:14px;font-size:13.5px;font-weight:700;cursor:pointer;
+       background:#0f2148;border:1px solid #2c4a84;color:#cfe0ff;transition:all .15s;}
+  .tab:hover{background:#1d3566;}
+  .tab.cur{background:linear-gradient(120deg,#c98a1e,#ff9f2e);color:#1a1000;border-color:#ff9f2e;}
+  .stage{padding:10px 20px 18px;}
+  .idea{background:#12260f;background:linear-gradient(120deg,#12260f,#0f2148);border:1px solid
+       rgba(94,232,166,.45);border-radius:12px;padding:11px 16px;margin-bottom:10px;
+       display:flex;gap:10px;align-items:flex-start;}
+  .idea .bg{font-size:20px;flex:none;}
+  .idea .txt{font-size:14px;color:#d9f2e4;line-height:1.8;font-weight:600;}
+  .idea .txt b{color:var(--gold);}
+  .dual{display:flex;gap:12px;flex-wrap:wrap;}
+  .plot{flex:1;min-width:300px;background:#0c1d3d;border:1px solid #33589e;border-radius:12px;padding:6px 8px 4px;}
+  .plot .pt{font-size:13px;font-weight:700;color:#d7e3ff;padding:2px 6px 4px;}
+  canvas{display:block;width:100%;border-radius:9px;background:radial-gradient(circle at 50% 40%,#12285a,#060f22 80%);
+       border:1px solid #1c3a72;}
+  .single canvas{width:100%;}
+  .scrub{display:flex;align-items:center;gap:12px;padding:9px 4px 2px;}
+  .scrub .lab{font-size:12px;color:#8fb4f5;white-space:nowrap;}
+  input[type=range]{flex:1;height:6px;border-radius:3px;-webkit-appearance:none;appearance:none;
+       background:linear-gradient(90deg,#27407a,#67b0f6);outline:none;cursor:ew-resize;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:19px;height:19px;border-radius:50%;
+       background:var(--gold);border:3px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.5);cursor:grab;}
+  .curval{min-width:170px;text-align:center;font-size:13px;font-weight:700;color:var(--gold);
+       background:#0a1a38;border:1px solid #2c4a84;border-radius:9px;padding:5px 8px;}
+  .ops{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;align-items:center;}
+  .btn{border:none;padding:9px 18px;border-radius:9px;font-size:13.5px;font-weight:700;cursor:pointer;
+       background:linear-gradient(120deg,#2a5191,#1e3a6e);color:#fff;transition:all .15s;}
+  .btn:hover{filter:brightness(1.12);}
+  .btn.stop{background:#8c2737;}
+  .btn.dir{border:1px solid #2c4a84;background:#0f2148;color:#cfe0ff;padding:8px 14px;font-size:13px;}
+  .btn.dir.cur{background:linear-gradient(120deg,#1e7a52,#36b377);color:#fff;border-color:#36b377;}
+  .btn.secondary{background:#152a55;color:#cfe0ff;border:1px solid #33589e;}
+  .foot{font-size:12.5px;color:#cfe0ff;background:#0e2148;border:1px solid #33589e;border-left:4px solid var(--gold);
+       padding:10px 14px;border-radius:0 10px 10px 0;margin-top:12px;line-height:1.9;}
+  .foot b{color:var(--gold);}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="titlebar">
+    <h1>数学思政 · 无穷小与无穷大 <em>· 交互式微课</em></h1>
+    <p>每一个数学结论背后都藏着一句人生哲理：无穷小的积累、极限的突破、夹逼的坚守、方向的选择。点底部画页切换，拖动滑块或播放动画亲自体会。</p>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <div class="tab cur">🌱 积少成多</div>
+    <div class="tab">💡 直面困难</div>
+    <div class="tab">🎯 坚定目标</div>
+    <div class="tab">🧭 方向即命运</div>
+  </div>
+
+  <div class="stage">
+    <div class="idea" id="idea"></div>
+    <div class="single"><canvas id="cv" width="960" height="380"></canvas></div>
+    <div class="scrub">
+      <span class="lab" id="scrubLab">进度</span>
+      <input type="range" id="scrub" min="0" max="100" step="1" value="0">
+      <span class="curval" id="curVal">—</span>
+    </div>
+    <div class="ops" id="ops"></div>
+    <div class="foot" id="foot"></div>
+  </div>
+</div>
+<script>
+"use strict";
+/* ============================================================
+ * 数学思政 · 无穷小与无穷大 交互式微课（复刻文章“思政可视化”）
+ * 幕1 调和级数（1/n→0 每一项都小，部分和却发散→∞）→ 积少成多
+ * 幕2 sin x/x（0/0 不定式极限=1）→ 直面困难
+ * 幕3 x·sin(1/x)（被 ±|x| 夹逼到 0）→ 坚定目标
+ * 幕4 1/x（x→∞ 无穷小 vs x→0⁺ 无穷大）→ 方向即命运
+ * ============================================================ */
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const state = { tab: 0, t: 0, playing: false, token: null, dir: 0 };  // dir: 幕4 方向（0=+∞,1=0⁺）
+const cv = $("cv"), ct = cv.getContext("2d");
+const W = cv.width, H = cv.height;
+const fmt = v => Math.abs(v - Math.round(v)) < 1e-9 ? String(Math.round(v)) : (+v.toFixed(3));
+
+/* 幕数据：文案 + 提示 */
+const TABS = [
+  { nm: "🌱 积少成多（调和级数）",
+    idea: "🌱 <b>思政</b>：<b>1/n → 0</b>（每一项都是无穷小），可 <b>1+1/2+1/3+… 的部分和却缓慢攀升、永无止境 → +∞</b>。",
+    idea2: "一点一滴的付出看似微不足道（无穷小），但只要<b>持之以恒、日积月累</b>，终将成就了不起的事业（无穷大）——这就是量变引起质变。",
+    ops: [] },
+  { nm: "💡 直面困难（sin x / x）",
+    idea: "💡 <b>思政</b>：sin x/x 在 x=0 处本是 <b>0/0 不定式</b>，直接代入毫无意义；",
+    idea2: "但用<b>极限的方法</b>（洛必达/夹逼/等价无穷小）找到确定答案 <b>1</b>。困难看似“无解”，换个思路、找对方法，必有出路。",
+    ops: [] },
+  { nm: "🎯 坚定目标（x · sin(1/x)）",
+    idea: "🎯 <b>思政</b>：x·sin(1/x) 在 x→0 时被上下的 <b>±|x| 两条包络线死死夹住</b>，",
+    idea2: "无论 sin(1/x) 多么“吵”（高频振荡），最终都被<b>夹逼到 0</b>。守住目标、排除干扰，再大的波动也会收敛。",
+    ops: [] },
+  { nm: "🧭 方向即命运（1/x）",
+    idea: "🧭 <b>思政</b>：同一个 <b>1/x</b>，选 x→∞：它收缩成<b>无穷小 0</b>；选 x→0⁺：它爆发成<b>无穷大 +∞</b>。",
+    idea2: "方向不同，命运迥异——选定<方向>，决定未来<b>积累的结果</b>。每天进步 1%（1.01ⁿ→∞）还是退步 1%（0.99ⁿ→0）？",
+    ops: [ { id: "dir", k: 0, lbl: "播放方向：x → +∞" }, { id: "dir", k: 1, lbl: "播放方向：x → 0⁺" } ] }
+];
+
+const P = { l: 52, r: 20, t: 24, b: 32 };
+function grid(rng, pos) {
+  /* 网格+坐标轴（y=0 蓝线=x轴，x=0 白线=y轴） */
+  const [x0, x1] = [rng.xa, rng.xb], [lo, hi] = [rng.ya, rng.yb];
+  const pw = W - P.l - P.r, ph = H - P.t - P.b;
+  const x2 = x => P.l + (x - x0) / (x1 - x0) * pw;
+  const y2 = v => P.t + (hi - v) / (hi - lo) * ph;
+  ct.strokeStyle = "rgba(120,170,255,.11)"; ct.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const yy = P.t + ph * i / 4;
+    ct.beginPath(); ct.moveTo(P.l, yy); ct.lineTo(P.l + pw, yy); ct.stroke();
+  }
+  if (lo < 0 && hi > 0) {   // x 轴（蓝色）
+    const ay = y2(0);
+    ct.strokeStyle = "rgba(79,195,247,.9)"; ct.lineWidth = 2;
+    ct.beginPath(); ct.moveTo(P.l, ay); ct.lineTo(P.l + pw - 4, ay); ct.stroke();
+    arr(P.l + pw - 4, ay, P.l + pw + 2, ay, "rgba(79,195,247,.9)");
+    ct.fillStyle = "#9bd7ff"; ct.font = "bold 12px 'Cambria Math'";
+    ct.textAlign = "left"; ct.textBaseline = "bottom";
+    ct.fillText("x", P.l + pw + 6, ay - 2);
+  }
+  if (x0 < 0 && x1 > 0) {   // y 轴
+    const ax = x2(0);
+    ct.strokeStyle = "rgba(255,255,255,.5)"; ct.lineWidth = 1.5;
+    ct.beginPath(); ct.moveTo(ax, P.t + ph); ct.lineTo(ax, P.t + 4); ct.stroke();
+    arr(ax, P.t + 4, ax, P.t - 2, "rgba(255,255,255,.65)");
+    ct.fillStyle = "#d7e3ff"; ct.font = "bold 12px 'Cambria Math'";
+    ct.textAlign = "left"; ct.textBaseline = "bottom";
+    ct.fillText("y", ax + 5, P.t - 2);
+  }
+  ct.fillStyle = "#8fa3c4"; ct.font = "10.5px 'Segoe UI'";
+  ct.textAlign = "right"; ct.textBaseline = "middle";
+  for (const v of [hi, lo, 0]) if (v !== 0) ct.fillText(fmt(v), P.l - 6, y2(v));
+  pos.x2 = x2; pos.y2 = y2; pos.pw = pw; pos.ph = ph;
+}
+function arr(x1, y1, x2, y2, col) {
+  const a = Math.atan2(y2 - y1, x2 - x1);
+  ct.fillStyle = col;
+  ct.beginPath();
+  ct.moveTo(x2, y2);
+  ct.lineTo(x2 - 10 * Math.cos(a - .4), y2 - 10 * Math.sin(a - .4));
+  ct.lineTo(x2 - 10 * Math.cos(a + .4), y2 - 10 * Math.sin(a + .4));
+  ct.closePath(); ct.fill();
+}
+function dot(x, y, col, r) {
+  ct.fillStyle = col;
+  ct.beginPath(); ct.arc(x, y, r || 5, 0, 2 * Math.PI); ct.fill();
+}
+
+/* 幕1：调和级数（左 1/n 柱 + 右部分和攀升） */
+function drawTab1() {
+  const N = Math.max(1, Math.round(state.t * 120));
+  ct.clearRect(0, 0, W, H);
+  const bg = ct.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#0e2148"); bg.addColorStop(1, "#081229");
+  ct.fillStyle = bg; ct.fillRect(0, 0, W, H);
+  const half = (W - P.l - P.r - 24) / 2;
+  const lx = P.l, rx = P.l + half + 24;
+
+  /* 左：1/n 柱状 */
+  const yMax = 1.35;
+  const p = {};
+  grid({ xa: 0.5, xb: 13.4, ya: 0, yb: yMax }, p);
+  const bw = p.pw / 13 * 0.66;
+  for (let k = 1; k <= Math.min(N, 13); k++) {
+    const h = 1 / k;
+    ct.fillStyle = "#67b0f6";
+    ct.fillRect(p.x2(k) - bw / 2, p.y2(h), bw, p.y2(0) - p.y2(h));
+  }
+  ct.fillStyle = "#d7e3ff"; ct.font = "bold 12px 'Segoe UI'";
+  ct.textAlign = "left"; ct.textBaseline = "top";
+  ct.fillText("每一项 uₙ=1/n（小 → 无穷小）", P.l, 4);
+
+  /* 右：部分和 Sₙ */
+  let S = 0; const Ss = [0];
+  for (let k = 1; k <= 120; k++) { S += 1 / k; Ss.push(S); }
+  const sMax = Math.max(Ss[N], 1);
+  const pr = {};
+  grid({ xa: 0, xb: 120, ya: 0, yb: Math.max(sMax * 1.18, 0.8) }, pr);
+  ct.strokeStyle = "#ff9f2e"; ct.lineWidth = 2.6; ct.lineJoin = "round";
+  ct.beginPath();
+  for (let k = 0; k <= N; k++) {
+    const px = pr.x2(k), py = pr.y2(Ss[k]);
+    k === 0 ? ct.moveTo(px, py) : ct.lineTo(px, py);
+  }
+  ct.stroke();
+  ct.fillStyle = "#ffd23d";
+  for (let k = 0; k <= N; k++) { ct.beginPath(); ct.arc(pr.x2(k), pr.y2(Ss[k]), 2.4, 0, 2 * Math.PI); ct.fill(); }
+  if (N >= 1) {
+    const py = pr.y2(Ss[N]);
+    dot(pr.x2(N), py, "#ffd23d", 5.5);
+    ct.fillStyle = "#ffd23d"; ct.font = "bold 12px 'Segoe UI'";
+    ct.textAlign = "left"; ct.textBaseline = "bottom";
+    ct.fillText("S" + N + " = " + fmt(Ss[N]) + "（缓慢增长 → +∞）", pr.x2(N) + 7, py - 4);
+  }
+  ct.fillStyle = "#d7e3ff"; ct.font = "bold 12px 'Segoe UI'";
+  ct.textAlign = "left"; ct.textBaseline = "top";
+  ct.fillText("部分和 Sₙ = 1+1/2+…+1/n → +∞（发散）", rx, 4);
+  ct.fillStyle = "#ff9d9d"; ct.font = "bold 11px 'PingFang SC'";
+  ct.textAlign = "right"; ct.textBaseline = "bottom";
+  ct.fillText("每一项趋 0，和却冲向无穷 —— 积少成多", W - P.r, 3);
+  $("curVal").textContent = "n = " + N + "，Sₙ = " + fmt(Ss[N]);
+}
+function drawTab2() {   /* sin x/x dual 趋近 */
+  const r = 6.2 * (1 - state.t) + 0.02;
+  ct.clearRect(0, 0, W, H);
+  const bg = ct.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#0e2148"); bg.addColorStop(1, "#081229");
+  ct.fillStyle = bg; ct.fillRect(0, 0, W, H);
+  const p = {};
+  grid({ xa: -6.6, xb: 6.6, ya: -0.45, yb: 1.25 }, p);
+  const N = 700;
+  ct.strokeStyle = "#ff9f2e"; ct.lineWidth = 3; ct.lineJoin = "round";
+  ct.beginPath();
+  for (let i = 0; i <= N; i++) {
+    const x = -6.6 + 13.2 * i / N;
+    if (Math.abs(x) < 1e-9) { ct.moveTo(p.x2(0), p.y2(1)); continue; }
+    const px = p.x2(x), py = p.y2(Math.sin(x) / x);
+    if (i === 0) ct.moveTo(px, py); else ct.lineTo(px, py);
+  }
+  ct.stroke();
+  /* 空心（未定义）+ 极限点 */
+  ct.strokeStyle = "#fff"; ct.lineWidth = 2;
+  ct.beginPath(); ct.arc(p.x2(0), p.y2(1), 6, 0, 2 * Math.PI); ct.stroke();
+  dot(p.x2(0), p.y2(1), "#ffd23d", 5);
+  /* 双金点趋近 0 */
+  for (const s of [-1, 1]) {
+    const x = s * r;
+    const y = Math.sin(x) / x;
+    const py = p.y2(y);
+    dot(p.x2(x), py, "#ffd23d", 6);
+    ct.fillStyle = "#ffd23d"; ct.font = "bold 11px 'Segoe UI'";
+    ct.textAlign = "left"; ct.textBaseline = "bottom";
+    ct.fillText("f(" + fmt(s * r) + ")=" + fmt(y), p.x2(x) + (s > 0 ? 6 : -56), py - 4);
+  }
+  ct.fillStyle = "#9bd7ff"; ct.font = "bold 11px 'PingFang SC'";
+  ct.textAlign = "right"; ct.textBaseline = "bottom";
+  ct.fillText("lim sin x/x = 1（0/0 不定式的确定答案）", W - P.r, 3);
+  $("curVal").textContent = "x = ±" + fmt(r) + "，sin x / x → " + fmt(Math.sin(r) / r);
+}
+function drawTab3() {   /* x·sin(1/x) 夹逼 */
+  const r = 2.0 * (1 - state.t) + 0.02;
+  ct.clearRect(0, 0, W, H);
+  const bg = ct.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#0e2148"); bg.addColorStop(1, "#081229");
+  ct.fillStyle = bg; ct.fillRect(0, 0, W, H);
+  const p = {};
+  grid({ xa: -2.2, xb: 2.2, ya: -2.4, yb: 2.4 }, p);
+  /* 包络线 ±|x|（蓝虚线） */
+  ct.strokeStyle = "rgba(103,176,246,.8)"; ct.setLineDash([5, 4]); ct.lineWidth = 1.8;
+  ct.beginPath(); ct.moveTo(p.x2(-2.2), p.y2(2.2)); ct.lineTo(p.x2(2.2), p.y2(-2.2)); ct.stroke();
+  ct.beginPath(); ct.moveTo(p.x2(-2.2), p.y2(-2.2)); ct.lineTo(p.x2(2.2), p.y2(2.2)); ct.stroke();
+  ct.setLineDash([]);
+  ct.fillStyle = "#8fb4f5"; ct.font = "bold 11px 'PingFang SC'";
+  ct.textAlign = "right"; ct.textBaseline = "bottom";
+  ct.fillText("包络线 y = |x| 与 y = −|x|", W - P.r, 3);
+  /* 曲线 */
+  const N = 900;
+  ct.strokeStyle = "#ff9f2e"; ct.lineWidth = 2.6; ct.lineJoin = "round";
+  ct.beginPath();
+  for (let i = 0; i <= N; i++) {
+    const x = -2.2 + 4.4 * i / N;
+    if (Math.abs(x) < 1e-9) { ct.moveTo(p.x2(0), p.y2(0)); continue; }
+    const px = p.x2(x), py = p.y2(x * Math.sin(1 / x));
+    if (i === 0) ct.moveTo(px, py); else ct.lineTo(px, py);
+  }
+  ct.stroke();
+  /* 双金点 */
+  for (const s of [-1, 1]) {
+    const x = s * r, y = x * Math.sin(1 / x);
+    dot(p.x2(x), p.y2(y), "#ffd23d", 6);
+  }
+  ct.fillStyle = "#ffd23d"; ct.font = "bold 11px 'Segoe UI'";
+  ct.textAlign = "left"; ct.textBaseline = "bottom";
+  ct.fillText("被夹到 0", p.x2(0) + 8, p.y2(0) - 6);
+  $("curVal").textContent = "x = ±" + fmt(r) + "，振幅 ≤ " + fmt(r) + " → 0";
+}
+function drawTab4() {   /* 1/x 方向即命运 */
+  ct.clearRect(0, 0, W, H);
+  const bg = ct.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#0e2148"); bg.addColorStop(1, "#081229");
+  ct.fillStyle = bg; ct.fillRect(0, 0, W, H);
+  const p = {};
+  grid({ xa: -8, xb: 8, ya: -4, yb: 4 }, p);
+  const N = 800;
+  ct.strokeStyle = "#ff9f2e"; ct.lineWidth = 3; ct.lineJoin = "round";
+  ct.beginPath();
+  for (let i = 0; i <= N; i++) {
+    const x = -8 + 16 * i / N;
+    if (Math.abs(x) < 1e-9) { ct.moveTo(p.x2(0), p.y2(0)); continue; }
+    const y = 1 / x;
+    if (Math.abs(y) > 40) { ct.moveTo(p.x2(x), p.y2(0)); continue; }
+    const px = p.x2(x), py = p.y2(y);
+    if (i === 0) ct.moveTo(px, py); else ct.lineTo(px, py);
+  }
+  ct.stroke();
+  /* 两个方向标记 */
+  ct.fillStyle = "#8deabd"; ct.font = "bold 12px 'PingFang SC'";
+  ct.textAlign = "left"; ct.textBaseline = "top";
+  ct.fillText("x→+∞：1/x → 0（无穷小）", p.x2(3.2), p.y2(0.3));
+  ct.fillStyle = "#ff9d9d";
+  ct.fillText("x→0⁺：1/x → +∞（无穷大）", p.x2(0.8), p.y2(3.1));
+  /* 方向动画 */
+  let ox;
+  if (state.dir === 0) ox = 0.55 + (7.0 - 0.55) * state.t;   // x：0.55→7（→+∞）
+  else ox = 0.55 + (2.4 - 0.55) * state.t;                   // x：0.55→2.4 后…… x→0 用反向：x 从 2.4 → 0.55？需要趋近 0
+  /* 修正：x→0⁺ 方向用 t 由 1→0? 为简单：从左侧远 → 近 */
+  if (state.dir === 1) ox = 2.4 * (1 - state.t) + 0.05;      // 2.4→0.05 趋 0
+  const oy = 1 / ox;
+  dot(p.x2(ox), p.y2(oy), "#ffd23d", 6);
+  ct.fillStyle = "#ffd23d"; ct.font = "bold 12px 'Segoe UI'";
+  ct.textAlign = "left"; ct.textBaseline = "bottom";
+  ct.fillText("(" + fmt(ox) + ", " + fmt(oy) + ")", p.x2(ox) + 7, p.y2(oy) - 4);
+  $("curVal").textContent = state.dir === 0 ? "x 增大 → 1/x 收缩向 0" : "x → 0⁺ → 1/x 冲向 +∞";
+}
+
+const drawT = [drawTab1, drawTab2, drawTab3, drawTab4];
+
+/* ---------- 文案渲染 ---------- */
+function renderIdea() {
+  const T = TABS[state.tab];
+  $("idea").innerHTML = "<span class='bg'>“</span><span class='txt'>" + T.idea + "</span>";
+  $("foot").innerHTML = "<b>思政随笔：</b>" + T.idea2;
+  const ops = $("ops");
+  ops.innerHTML = "";
+  T.ops.forEach(o => {
+    const b = document.createElement("button");
+    b.className = "btn dir" + (state.dir === o.k ? " cur" : "");
+    b.textContent = o.lbl;
+    b.onclick = () => { if (state.playing) stopPlay(); state.dir = o.k; state.t = 0; renderIdea(); drawC(); };
+    ops.appendChild(b);
+  });
+  const pb = document.createElement("button");
+  pb.id = "playBtn";
+  pb.className = "btn";
+  pb.textContent = "▶ 播放动画";
+  pb.onclick = () => { if (state.playing) { state.token && (state.token.stop = true); } else play(); };
+  ops.appendChild(pb);
+}
+function stopPlay() {
+  if (state.token) { state.token.stop = true; state.token = null; }
+  state.playing = false;
+  const pb = $("playBtn");
+  if (pb) { pb.textContent = "▶ 播放动画"; pb.classList.remove("stop"); }
+}
+async function play() {
+  if (state.playing) return;
+  state.playing = true;
+  state.t = 0;
+  const token = { stop: false };
+  state.token = token;
+  const pb = $("playBtn");
+  pb.textContent = "■ 停止";
+  pb.classList.add("stop");
+  const dur = 3400;
+  const t0 = performance.now();
+  while (state.t < 1) {
+    if (token.stop) break;
+    state.t = Math.min(1, (performance.now() - t0) / dur);
+    drawC(); syncScrub();
+    await sleep(30);
+  }
+  state.playing = false;
+  token.stop = false;
+  state.token = null;
+  pb.textContent = "▶ 重新播放";
+  pb.classList.remove("stop");
+}
+function syncScrub() {
+  const s = $("scrub");
+  const v = Math.round(state.t * 100);
+  if (s.value != v) s.value = v;
+}
+const drawC = () => drawT[state.tab]();
+function selectTab(i) {
+  if (state.playing) stopPlay();
+  state.tab = i; state.t = 0; state.dir = 0;
+  $("scrub").value = 0;
+  const ts = document.querySelectorAll(".tab");
+  ts.forEach((x, j) => x.classList.toggle("cur", j === i));
+  $("scrubLab").textContent = i === 0 ? "n 增长" : i === 3 ? "x 移动" : "趋近程度";
+  renderIdea(); drawC();
+}
+
+/* 初始化 */
+$("tabs").childNodes.forEach(n => {
+  if (n.nodeType === 1) n.addEventListener("click", () => selectTab([...$("tabs").children].indexOf(n)));
+});
+$("scrub").addEventListener("input", e => {
+  if (state.playing) stopPlay();
+  state.t = parseInt(e.target.value, 10) / 100;
+  drawC();
+});
+selectTab(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中国古代的极限思想 · 刘徽割圆 × 庄子截丈</title>
+<style>
+  :root{
+    --bg:#0a1428; --card:#0d1b3a; --panel:#0f2148;
+    --title1:#0a1428; --title2:#1e3a6e;
+    --orange:#ff9f2e; --gold:#ffd23d; --red:#ff6b6b; --blue:#67b0f6;
+    --text:#e8eff9; --muted:#8fa3c4; --line:#27407a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    background:#050d1f; color:var(--text);
+    display:flex; justify-content:center; padding:24px 12px;
+  }
+  .app{width:100%; max-width:1120px; background:var(--card); border-radius:16px;
+       border:1px solid #1c3a72; box-shadow:0 24px 60px rgba(0,0,0,.5); overflow:hidden;}
+  .titlebar{
+    background:linear-gradient(120deg,var(--title1),var(--title2));
+    color:#fff; padding:16px 26px 12px; border-bottom:1px solid #27407a;
+  }
+  .titlebar h1{font-size:21px; font-weight:700; letter-spacing:.5px;}
+  .titlebar h1 em{font-style:normal; color:var(--gold); font-weight:800;}
+  .titlebar .quote{margin-top:8px; font-size:14px; color:#d7e3ff; line-height:1.8;
+     background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14);
+     padding:8px 14px; border-radius:9px; display:inline-block;}
+  .titlebar .quote b{color:#ffc36b;}
+  .titlebar p{font-size:12.5px; opacity:.85; margin-top:6px; color:#a9c2ee;}
+  /* 页签 */
+  .tabs{display:flex; gap:10px; padding:14px 20px 0; flex-wrap:wrap;}
+  .tab{
+    border:1px solid #2c4a84; background:#0f2148; color:#b9cdf2;
+    padding:9px 20px; border-radius:22px; font-size:14px; cursor:pointer;
+    transition:all .18s; user-select:none; font-weight:600;
+  }
+  .tab:hover{background:#17315f; color:#fff;}
+  .tab.active{background:linear-gradient(120deg,#c98a1e,#ff9f2e); color:#1a1000; border-color:#ff9f2e;}
+  .tab.active.em{background:linear-gradient(120deg,#b33a3a,#ff6b6b); border-color:#ff6b6b;}
+  .tab small{display:block; font-size:11px; font-weight:400; opacity:.75; margin-top:1px;}
+  /* 模块 */
+  .mod{display:none;}
+  .mod.active{display:block;}
+  /* 画布 */
+  .stage{position:relative; padding:12px 20px 0;}
+  canvas{display:block; width:100%; border-radius:12px; background:linear-gradient(180deg,#0e2148,#081229); border:1px solid #1c3a72;}
+  .legend{display:flex; gap:18px; flex-wrap:wrap; font-size:12.5px; color:#a9c2ee; padding:7px 2px 2px; user-select:none;}
+  .legend i{display:inline-block; width:14px; height:14px; border-radius:3px; vertical-align:-2px; margin-right:6px; border:1px solid rgba(255,255,255,.25);}
+  .legend .lg-p i{background:var(--orange);}
+  .legend .lg-r i{background:var(--red);}
+  .legend .lg-g i{background:rgba(255,255,255,.08);}
+  .legend .lg-b i{background:transparent; border:2px solid var(--blue); border-radius:50%;}
+  .legend .lg-l i{background:rgba(103,176,246,.25);}
+  /* 数值卡片 */
+  .stats{display:flex; flex-wrap:wrap; gap:10px; padding:14px 20px 0;}
+  .stat{flex:1; min-width:150px; background:var(--panel); border:1px solid var(--line);
+     border-radius:12px; padding:10px 14px; text-align:center;}
+  .stat .k{font-size:12px; color:#8fa3c4; margin-bottom:5px;}
+  .stat .v{font-size:20px; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums;}
+  .stat .v.orange{color:var(--orange);}
+  .stat .v.red{color:#ff7a7a;}
+  .stat .u{font-size:11px; color:#6a7fa6; margin-top:3px;}
+  /* 控制面板 */
+  .panel{padding:12px 24px 20px; background:#0c1a36; border-top:1px solid #1c385e;}
+  .ctl-row{display:flex; align-items:center; gap:14px; padding:8px 0; flex-wrap:wrap;}
+  .ctl-label{font-size:13.5px; font-weight:700; min-width:150px; color:#d7e3ff;}
+  .ctl-label .sym{font-size:17px; color:var(--gold);}
+  .slider-wrap{flex:1; min-width:220px; display:flex; align-items:center; gap:12px;}
+  input[type=range]{flex:1; height:6px; -webkit-appearance:none; appearance:none; border-radius:3px; outline:none; cursor:pointer;}
+  input[type=range].o{background:linear-gradient(90deg,#7a5a28,var(--orange));}
+  input[type=range].r{background:linear-gradient(90deg,#8a2a3a,var(--red));}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:19px; height:19px; border-radius:50%;
+    background:var(--orange); border:3px solid #fff; box-shadow:0 1px 6px rgba(0,0,0,.4); cursor:grab;}
+  input[type=range].r::-webkit-slider-thumb{background:var(--red);}
+  .val{min-width:150px; text-align:center; font-size:14.5px; font-weight:700; padding:6px 10px;
+     border-radius:9px; background:#0a1a38; border:1px solid #2c4a84; color:var(--gold); font-variant-numeric:tabular-nums;}
+  .status{
+    margin-top:12px; padding:13px 18px; border-radius:12px; font-size:14.5px; line-height:1.6;
+    font-weight:600; background:#0f2148; border:1px solid var(--line); min-height:52px; color:#cfe0ff;
+  }
+  .status .ico{font-size:19px; margin-right:4px;}
+  .status.demo{background:#122852; border-color:#33589e;}
+  .status .sub{display:block; font-size:12px; font-weight:400; opacity:.85; margin-top:3px;}
+  .actions{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;}
+  .btn{border:none; padding:11px 20px; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer;
+     background:linear-gradient(120deg,#2a5191,#1e3a6e); color:#fff; transition:all .18s; box-shadow:0 4px 14px rgba(0,0,0,.35);}
+  .btn:hover{transform:translateY(-1px); filter:brightness(1.1);}
+  .btn.stop{background:#8c2737;}
+  .btn.secondary{background:#152a55; color:#cfe0ff; border:1px solid #33589e; box-shadow:none;}
+  .btn.secondary:hover{border-color:#4a74c0;}
+  .notice{font-size:12px; color:#7f93b8; margin-top:10px; line-height:1.7; background:#0e1f42;
+     border-left:3px solid #33589e; padding:8px 12px; border-radius:0 8px 8px 0;}
+  @media (max-width:640px){ .panel{padding:10px 14px;} .ctl-label{min-width:90px;} }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="titlebar">
+    <h1>中国古代的极限思想 <em>·</em> 刘徽割圆 × 庄子截丈</h1>
+    <div class="quote">“割之弥细，所失弥少；割之又割，以至于不可割，则与圆周合体而无所失矣。” —— 刘徽　·　“一尺之棰，日取其半，万世不竭。” —— 《庄子》</div>
+    <p>相隔数百年的两句话，讲的是同一种思想 —— <b>无限逼近</b>。左页：正 6·2ⁿ 边形面积递增逼近 π；右页：剩余 (1/2)ⁿ 递减逼近 0。</p>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" id="tabLh">🔵 刘徽割圆术 <small>边数翻倍 → 面积 → π</small></div>
+    <div class="tab em" id="tabZz">🔴 庄子截丈 <small>日取其半 → 剩余 → 0</small></div>
+  </div>
+
+  <!-- ==================== 模块一 · 刘徽割圆术 ==================== -->
+  <div class="mod active" id="modLh">
+    <div class="stats">
+      <div class="stat"><div class="k">正多边形的边数</div><div class="v" id="lhstSides">6</div><div class="u">6 · 2<sup>n</sup> 条边（n = 0 起）</div></div>
+      <div class="stat"><div class="k">内接面积 Sₙ</div><div class="v orange" id="lhstArea">2.5981</div><div class="u">N/2 · sin(2π/N)</div></div>
+      <div class="stat"><div class="k">圆面积（目标 π）</div><div class="v" id="lhstPi">3.1416</div><div class="u">π R² = π</div></div>
+      <div class="stat"><div class="k">“所失” π − Sₙ</div><div class="v red" id="lhstDiff">0.5435</div><div class="u">边数越多 → 差值越小</div></div>
+    </div>
+    <div class="stage">
+      <canvas id="lhcv"></canvas>
+      <div class="legend">
+        <span class="lg-b"><i></i>单位圆（目标）</span>
+        <span class="lg-p"><i></i>内接正 6·2ⁿ 边形</span>
+        <span class="lg-l"><i></i>“所失”区域（弦与弧之间）</span>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ctl-row">
+        <span class="ctl-label"><span class="sym">n</span> 割几刀：6·2<sup>n</sup> 边形</span>
+        <div class="slider-wrap">
+          <input type="range" id="lhn" class="o" min="0" max="11" step="1" value="0">
+          <span class="val" id="lhValN">n = 0 &nbsp; 6 边形</span>
+        </div>
+        <button class="btn secondary" id="lhFold">▲ 再割一刀（边数翻倍）</button>
+      </div>
+      <div class="status" id="lhStatus"></div>
+      <div class="actions">
+        <button class="btn" id="lhDemo">▶ 自动演示（割之又割）</button>
+        <button class="btn secondary" id="lhReset">↺ 重置</button>
+      </div>
+      <div class="notice" id="lhNotice"></div>
+    </div>
+  </div>
+
+  <!-- ==================== 模块二 · 庄子截丈 ==================== -->
+  <div class="mod" id="modZz">
+    <div class="stats">
+      <div class="stat"><div class="k">已经到了第 n 天</div><div class="v" id="zzstDay">0</div><div class="u">n = 0 表示还没动手</div></div>
+      <div class="stat"><div class="k">剩余木棍长度</div><div class="v red" id="zzstRemain">1.0000</div><div class="u">(1/2)<sup>n</sup> 尺</div></div>
+      <div class="stat"><div class="k">累计取走的部分</div><div class="v orange" id="zzstTaken">0.0000</div><div class="u">1 − (1/2)<sup>n</sup> → 1</div></div>
+      <div class="stat"><div class="k">还能取吗？</div><div class="v" id="zzstQ">可以！</div><div class="u">剩余 &gt; 0，永远取不完</div></div>
+    </div>
+    <div class="stage">
+      <canvas id="zzcv"></canvas>
+      <div class="legend">
+        <span class="lg-g"><i></i>原本的一尺（虚影）</span>
+        <span class="lg-r"><i></i>剩下的部分</span>
+        <span class="lg-p"><i></i>每日剩余柱 (1/2)ⁿ</span>
+        <span class="lg-b"><i></i>指数曲线 y=(1/2)^x</span>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ctl-row">
+        <span class="ctl-label"><span class="sym">n</span> 过去的天数</span>
+        <div class="slider-wrap">
+          <input type="range" id="zzn" class="r" min="0" max="10" step="1" value="0">
+          <span class="val" id="zzValN">n = 0 &nbsp; 剩余 1 尺</span>
+        </div>
+        <button class="btn secondary" id="zzDay">＋ 再取一天（减半）</button>
+      </div>
+      <div class="status" id="zzStatus"></div>
+      <div class="actions">
+        <button class="btn" id="zzDemo">▶ 自动演示（日取其半）</button>
+        <button class="btn secondary" id="zzReset">↺ 重置</button>
+      </div>
+      <div class="notice" id="zzNotice"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ---------- 页签切换 ---------- */
+const $ = id => document.getElementById(id);
+function showMod(name) {
+  const lh = name === "lh";
+  $("modLh").classList.toggle("active", lh);
+  $("modZz").classList.toggle("active", !lh);
+  $("tabLh").classList.toggle("active", lh);
+  $("tabZz").classList.toggle("active", !lh);
+  // 切换后把对应画布重绘一次（保证加载后尺寸正确）
+  if (lh) { if (window.LH) window.LH.draw(); } else { if (window.ZZ) window.ZZ.draw(); }
+}
+$("tabLh").onclick = () => showMod("lh");
+$("tabZz").onclick = () => showMod("zz");
+/* ================= 模块一 · 刘徽割圆术（n 从 0 开始） ================= */
+window.LH = (function () {
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  const state = { n: 0, demo: null, showLost: true };
+  const cv = $("lhcv");
+  const ctx = cv.getContext("2d");
+  cv.width = 1040; cv.height = 560;
+
+  const C = { x: 520, y: 285, r: 218 };
+  const PI = Math.PI;
+  const sides = () => 6 * Math.pow(2, state.n);       // n = 0 → 正六边形
+  const area = () => {
+    const N = sides();
+    return (N / 2) * Math.sin(2 * PI / N);
+  };
+
+  function draw() {
+    const N = sides();
+    const A = area();
+    const diff = PI - A;
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    const g = ctx.createLinearGradient(0, 0, 0, cv.height);
+    g.addColorStop(0, "#0e2148"); g.addColorStop(1, "#081229");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, cv.width, cv.height);
+
+    // 参考网格
+    ctx.strokeStyle = "rgba(90,140,220,.08)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 8; i++) {
+      const y = i * cv.height / 8;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cv.width, y); ctx.stroke();
+    }
+    for (let i = 0; i <= 10; i++) {
+      const x = i * cv.width / 10;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, cv.height); ctx.stroke();
+    }
+
+    // 顶点
+    const verts = [];
+    for (let i = 0; i < N; i++) {
+      const a = -PI / 2 + i * 2 * PI / N;
+      verts.push([C.x + C.r * Math.cos(a), C.y + C.r * Math.sin(a)]);
+    }
+
+    // “所失”弓形区
+    if (state.showLost) {
+      ctx.fillStyle = "rgba(103,176,246,.22)";
+      ctx.strokeStyle = "rgba(103,176,246,.35)";
+      ctx.lineWidth = 1;
+      for (let i = 0; i < N; i++) {
+        const [x1, y1] = verts[i];
+        const [x2, y2] = verts[(i + 1) % N];
+        const a1 = Math.atan2(y1 - C.y, x1 - C.x);
+        const a2 = Math.atan2(y2 - C.y, x2 - C.x);
+        ctx.beginPath();
+        ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+        ctx.arc(C.x, C.y, C.r, a2, a1, false);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+      }
+    }
+
+    // 圆
+    ctx.beginPath();
+    ctx.arc(C.x, C.y, C.r, 0, 2 * PI);
+    ctx.strokeStyle = "rgba(103,176,246,.9)";
+    ctx.lineWidth = 2.4;
+    ctx.stroke();
+    ctx.fillStyle = "rgba(103,176,246,.06)";
+    ctx.fill();
+
+    // 多边形
+    ctx.beginPath();
+    verts.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y));
+    ctx.closePath();
+    ctx.fillStyle = N <= 24 ? "rgba(255,159,46,.16)" : "rgba(255,159,46,.28)";
+    ctx.fill();
+    ctx.strokeStyle = "#ff9f2e";
+    ctx.lineWidth = 2.6;
+    ctx.stroke();
+
+    // 顶点
+    ctx.fillStyle = "#ffd23d";
+    for (const [x, y] of verts) {
+      ctx.beginPath();
+      ctx.arc(x, y, N <= 96 ? (N <= 24 ? 3.2 : 2.4) : 1.8, 0, 2 * PI);
+      ctx.fill();
+    }
+    ctx.fillStyle = "rgba(255,255,255,.35)";
+    ctx.beginPath(); ctx.arc(C.x, C.y, 3, 0, 2 * PI); ctx.fill();
+
+    // 标签
+    ctx.fillStyle = "#ffcf87";
+    ctx.font = "bold 26px 'Segoe UI','PingFang SC',sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("正 " + N + " 边形（n = " + state.n + "）", C.x, 32);
+    ctx.font = "15px 'PingFang SC',sans-serif";
+    ctx.fillStyle = "#a9c2ee";
+    ctx.fillText("S = " + A.toFixed(5) + "　|　π − S = " + diff.toFixed(5), C.x, 58);
+
+    // 半径标注
+    ctx.strokeStyle = "rgba(255,255,255,.5)";
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(C.x, C.y); ctx.lineTo(C.x + C.r, C.y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#cfe0ff";
+    ctx.font = "13px 'PingFang SC',sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText("R = 1", C.x + C.r * 0.35, C.y + 20);
+  }
+
+  function syncStats() {
+    const N = sides();
+    const A = area();
+    const diff = PI - A;
+    $("lhstSides").textContent = N;
+    $("lhstArea").textContent = A.toFixed(4);
+    $("lhstPi").textContent = "3.1416";
+    $("lhstDiff").textContent = diff.toFixed(4);
+    $("lhValN").innerHTML = "n = " + state.n + " &nbsp; " + N + " 边形";
+    $("lhn").value = state.n;
+  }
+
+  function renderStatus() {
+    const N = sides();
+    const A = area();
+    const diff = PI - A;
+    const st = $("lhStatus");
+    st.className = "status";
+    st.innerHTML = '<span class="ico">🟠</span>正 ' + N + ' 边形（n=' + state.n + '）：面积 S = <b>' + A.toFixed(5) + '</b>，比圆小 <b>' + diff.toFixed(5) + '</b>（“所失”）'
+      + '<span class="sub">边数每次翻倍，S 单调递增逼近 π = 3.1415926…；“所失”越来越小——这就是“割之弥细，所失弥少”。极限不是等于，是无限接近。</span>';
+  }
+
+  function stopDemo() {
+    if (state.demo) state.demo.stop = true;
+  }
+  async function comment(text, ms) {
+    const st = $("lhStatus");
+    st.className = "status demo";
+    st.innerHTML = '<span class="ico">🎬</span>' + text;
+    await sleep(ms);
+  }
+  async function runDemo() {
+    const token = { stop: false };
+    state.demo = token;
+    const b = $("lhDemo");
+    b.textContent = "■ 停止演示";
+    b.classList.add("stop");
+    try {
+      state.n = 0;
+      syncStats(); renderStatus(); draw();
+      await comment("从正 6 边形（n=0）开始：像圆吗？不像。面积 <b>2.5981</b>，比圆小 <b>0.5435</b>——这就是“所失”。", 2600);
+      if (token.stop) return;
+      for (let n = 0; n <= 11; n++) {
+        if (token.stop) return;
+        state.n = n;
+        syncStats(); renderStatus(); draw();
+        if (n === 11) {
+          await comment("正 " + sides() + " 边形：S ≈ <b>" + area().toFixed(6) + "</b>，π − S ≈ <b>" + (PI - area()).toFixed(6) + "</b> —— 差到小数点后第 5 位。“所失弥少”看得清清楚楚。", 4200);
+        } else {
+          await comment("翻倍 → 正 " + sides() + " 边形：S 涨到 <b>" + area().toFixed(5) + "</b>，差值缩到 <b>" + (PI - area()).toFixed(5) + "</b>。", Math.min(1500, 980 - n * 28));
+        }
+      }
+      if (token.stop) return;
+      await comment("“割之又割，以至于不可割，则与圆周合体而无所失矣。”边数 → ∞，面积 → π。这就是极限：不是等于，而是无限接近的那个目标。", 3800);
+    } finally {
+      state.demo = null;
+      b.textContent = "▶ 自动演示（割之又割）";
+      b.classList.remove("stop");
+    }
+  }
+  $("lhn").addEventListener("input", e => {
+    if (state.demo) stopDemo();
+    state.n = parseInt(e.target.value, 10);
+    syncStats(); renderStatus(); draw();
+  });
+  $("lhFold").onclick = () => {
+    if (state.demo) stopDemo();
+    state.n = Math.min(11, state.n + 1);
+    syncStats(); renderStatus(); draw();
+  };
+  $("lhReset").onclick = () => {
+    if (state.demo) stopDemo();
+    state.n = 0;
+    syncStats(); renderStatus(); draw();
+  };
+  $("lhDemo").onclick = () => {
+    if (state.demo) { stopDemo(); return; }
+    runDemo();
+  };
+  $("lhNotice").innerHTML = "拖动滑块查看“割到任意刀数”；点“再割一刀”连续翻倍。n 从 0 开始：n=0 就是正六边形。";
+  syncStats();
+  renderStatus();
+  draw();
+
+  return { draw: draw };
+})();
+/* ================= 模块二 · 庄子截丈 ================= */
+window.ZZ = (function () {
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  const state = { n: 0, demo: null };
+  const cv = $("zzcv");
+  const ctx = cv.getContext("2d");
+  cv.width = 1040; cv.height = 560;
+
+  const remain = () => Math.pow(0.5, state.n);
+  const taken = () => 1 - remain();
+
+  const BAR = { top: 175, bottom: 512, left: 120, right: 985, nmax: 10 };
+  const maxH = () => BAR.bottom - BAR.top;
+  const barX = i => BAR.left + (i / BAR.nmax) * (BAR.right - BAR.left);
+
+  function draw() {
+    const n = state.n;
+    const r = remain();
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    const g = ctx.createLinearGradient(0, 0, 0, cv.height);
+    g.addColorStop(0, "#0e2148"); g.addColorStop(1, "#081229");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, cv.width, cv.height);
+
+/* ---------- 上部：木棍示意 ---------- */
+    const fullL = 440;
+    const x0 = 320, y0 = 50, barH = 46;
+    ctx.fillStyle = "rgba(255,255,255,.05)";
+    ctx.fillRect(x0, y0, fullL, barH);
+    ctx.strokeStyle = "rgba(255,255,255,.30)";
+    ctx.lineWidth = 1.4;
+    ctx.setLineDash([4, 4]);
+    ctx.strokeRect(x0, y0, fullL, barH);
+    ctx.setLineDash([]);
+    const rw = fullL * r;
+    const rg = ctx.createLinearGradient(x0, y0, x0 + rw, y0);
+    rg.addColorStop(0, "#ff8a8a"); rg.addColorStop(1, "#e94848");
+    ctx.fillStyle = rg;
+    ctx.fillRect(x0, y0, Math.max(rw, 1), barH);
+    ctx.strokeStyle = "#ff9f9f";
+    ctx.lineWidth = 1.6;
+    ctx.strokeRect(x0, y0, Math.max(rw, 1), barH);
+    if (n > 0) {
+      ctx.fillStyle = "#ffd23d";
+      ctx.beginPath(); ctx.arc(x0 + rw, y0 + barH / 2, 3.4, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = "#a9c2ee";
+    ctx.font = "12px 'PingFang SC',sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("0", x0, y0 + barH + 18);
+    ctx.fillText("1/2", x0 + fullL / 2, y0 + barH + 18);
+    ctx.fillText("1 尺", x0 + fullL, y0 + barH + 18);
+    ctx.fillStyle = "#ffcf87";
+    ctx.font = "bold 17px 'PingFang SC',sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText("一尺之棰：第 " + n + " 天，剩余 (1/2)^" + n + " = " + r.toFixed(4) + " 尺", 60, 44);
+    ctx.fillStyle = "#cfe0ff";
+    ctx.font = "12.5px 'PingFang SC',sans-serif";
+    ctx.fillText("灰色虚线框 = 原本的一尺", 60, 70);
+
+/* ---------- 下部：柱状图 + 指数曲线 ---------- */
+    ctx.strokeStyle = "rgba(90,140,220,.10)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const yy = BAR.top + (maxH() / 4) * i;
+      ctx.beginPath(); ctx.moveTo(BAR.left, yy); ctx.lineTo(BAR.right, yy); ctx.stroke();
+    }
+    ctx.fillStyle = "#7f93b8";
+    ctx.font = "12px 'Segoe UI','PingFang SC',sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText("1", BAR.left - 8, BAR.top + 4);
+    ctx.fillText("1/2", BAR.left - 8, BAR.top + maxH() * 0.5 + 4);
+    ctx.fillText("0", BAR.left - 8, BAR.bottom + 4);
+
+    for (let i = 0; i <= BAR.nmax; i++) {
+      const h = Math.pow(0.5, i) * maxH();
+      const x = barX(i);
+      const isCur = (i === n);
+      ctx.fillStyle = isCur ? "rgba(255,159,46,.95)" : "rgba(103,176,246,.28)";
+      ctx.fillRect(x - 13, BAR.bottom - h, 26, h);
+      ctx.fillStyle = isCur ? "rgba(255,210,61,.8)" : "rgba(103,176,246,.45)";
+      ctx.fillRect(x - 13, BAR.bottom - h, 26, 1.6);
+    }
+    ctx.strokeStyle = "rgba(126,196,255,.85)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([7, 5]);
+    ctx.beginPath();
+    for (let xi = 0; xi <= 200; xi++) {
+      const t = xi / 200;
+      const x = barX(t * BAR.nmax);
+      const y = BAR.bottom - Math.pow(0.5, t * BAR.nmax) * maxH();
+      if (xi === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = "#cfe0ff";
+    ctx.textAlign = "center";
+    ctx.font = "13px 'Segoe UI','PingFang SC',sans-serif";
+    for (let i = 0; i <= BAR.nmax; i += 2) {
+      ctx.fillText("n=" + i, barX(i), BAR.bottom + 20);
+    }
+    ctx.fillStyle = "#8fa3c4";
+    ctx.font = "11px 'PingFang SC',sans-serif";
+    ctx.fillText("每日剩余 (1/2)ⁿ：柱子无情地矮下去，虚线曲线无限贴近横轴却永不触碰 —— “万世不竭”", (BAR.left + BAR.right) / 2, BAR.bottom + 42);
+    ctx.fillStyle = "#ffd23d";
+    ctx.font = "bold 13px 'Segoe UI'";
+    ctx.fillText(Math.pow(0.5, n).toFixed(4), barX(n), BAR.bottom - Math.pow(0.5, n) * maxH() - 8);
+  }
+
+  function syncStats() {
+    const r = remain(), t = taken(), n = state.n;
+    $("zzstDay").textContent = n;
+    $("zzstRemain").textContent = r.toFixed(4);
+    $("zzstTaken").textContent = t.toFixed(4);
+    $("zzstQ").textContent = r > 0 ? "可以！" : "——";
+    $("zzValN").innerHTML = "n = " + n + " &nbsp; 剩余 " + r.toFixed(4) + " 尺";
+    $("zzn").value = n;
+  }
+
+  function renderStatus() {
+    const r = remain(), n = state.n;
+    const st = $("zzStatus");
+    st.className = "status";
+    st.innerHTML = '<span class="ico">🔴</span>第 <b>' + n + '</b> 天：木棍还剩 <b>' + r.toFixed(4) + '</b> 尺（' + (r === 1 ? "还没动手" : "昨天的一半") + '），累计取走 <b>' + taken().toFixed(4) + '</b> 尺'
+      + '<span class="sub">剩余序列 1, 1/2, 1/4, 1/8 … = (1/2)ⁿ：永远大于 0，却无限趋近 0 —— 所以“取不完”，这就是“万世不竭”。</span>';
+  }
+
+  function stopDemo() {
+    if (state.demo) state.demo.stop = true;
+  }
+  async function comment(text, ms) {
+    const st = $("zzStatus");
+    st.className = "status demo";
+    st.innerHTML = '<span class="ico">🎬</span>' + text;
+    await sleep(ms);
+  }
+  async function runDemo() {
+    const token = { stop: false };
+    state.demo = token;
+    const b = $("zzDemo");
+    b.textContent = "■ 停止演示";
+    b.classList.add("stop");
+    try {
+      state.n = 0;
+      syncStats(); renderStatus(); draw();
+      await comment("一根一尺（=1）的木棍。问：每天取走一半，能取完吗？", 2200);
+      if (token.stop) return;
+      for (let n = 1; n <= 10; n++) {
+        if (token.stop) return;
+        state.n = n;
+        syncStats(); renderStatus(); draw();
+        await comment("第 " + n + " 天：再取走剩下的一半 —— 剩 <b>" + Math.pow(0.5, n).toFixed(4) + "</b> 尺。", n <= 4 ? 2400 : 1650);
+      }
+      if (token.stop) return;
+      await comment("看下面的柱子和虚线：剩余 (1/2)ⁿ 永远大于 0，却无限趋近 0。“万世不竭”——每一天都还能取。", 3600);
+      if (token.stop) return;
+      comment("这就是数列的极限：lim (1/2)ⁿ = 0。它是“无限接近的那个目标”——永远到不了，却无限趋近。古人用一根木棍，真把极限讲透了。", 3200);
+    } finally {
+      state.demo = null;
+      b.textContent = "▶ 自动演示（日取其半）";
+      b.classList.remove("stop");
+    }
+  }
+  $("zzn").addEventListener("input", e => {
+    if (state.demo) stopDemo();
+    state.n = parseInt(e.target.value, 10);
+    syncStats(); renderStatus(); draw();
+  });
+  $("zzDay").onclick = () => {
+    if (state.demo) stopDemo();
+    state.n = Math.min(10, state.n + 1);
+    syncStats(); renderStatus(); draw();
+  };
+  $("zzReset").onclick = () => {
+    if (state.demo) stopDemo();
+    state.n = 0;
+    syncStats(); renderStatus(); draw();
+  };
+  $("zzDemo").onclick = () => {
+    if (state.demo) { stopDemo(); return; }
+    runDemo();
+  };
+  $("zzNotice").innerHTML = "拖动滑块模拟“过了几天”；点“再取一天”看木棍逐日减半。上方是木棍示意，下方是每日剩余 (1/2)ⁿ 的柱状图与指数曲线。";
+  syncStats();
+  renderStatus();
+  draw();
+
+  return { draw: draw };
+})();
+</script>
+</body>
+</html>

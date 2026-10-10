@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>确界原理 · 动画演示</title>
+<style>
+  :root{
+    --bg:#0a1428; --card:#0d1b3a; --panel:#0f2148; --title1:#0a1428; --title2:#1e3a6e;
+    --orange:#ff9f2e; --gold:#ffd23d; --red:#ff6b6b; --blue:#67b0f6; --green:#5ee8a6;
+    --text:#e8eff9; --muted:#8fa3c4; --line:#27407a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:#050d1f;color:var(--text);
+       display:flex;justify-content:center;padding:18px 12px;}
+  .app{width:100%;max-width:1020px;background:var(--card);border-radius:16px;border:1px solid #1c3a72;
+       box-shadow:0 24px 60px rgba(0,0,0,.5);overflow:hidden;}
+  .titlebar{background:linear-gradient(120deg,var(--title1),var(--title2));color:#fff;
+       padding:12px 26px 10px;border-bottom:1px solid #27407a;}
+  .titlebar h1{font-size:21px;font-weight:700;letter-spacing:1px;}
+  .titlebar h1 em{font-style:normal;color:var(--gold);}
+  .titlebar p{font-size:12px;opacity:.88;color:#a9c2ee;margin-top:4px;line-height:1.6;}
+  .titlebar p b{color:var(--gold);}
+  .stage{padding:12px 20px 18px;}
+  .modes{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+  .mode,.sample{border:none;padding:9px 16px;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;
+       background:#152a55;color:#cfe0ff;border:1px solid #33589e;transition:all .15s;}
+  .mode.on{background:linear-gradient(120deg,#c98a1e,#ff9f2e);color:#1a1000;border-color:#ffbf5e;}
+  .sample{font-family:'Cambria Math','Times New Roman',serif;font-size:14.5px;background:#12264a;color:#a9c2ee;border-color:#2c4a84;}
+  .sample.on{background:linear-gradient(120deg,#b471d8,#6e4bc9);color:#fff;border-color:#c99cff;}
+  .mode:hover,.sample:hover{filter:brightness(1.12);}
+  .wrap{position:relative;}
+  canvas#cv{width:100%;border-radius:10px;background:radial-gradient(circle at 50% 42%,#12285a,#060f22 80%);
+       border:1px solid #1c3a72;display:block;}
+  #pop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:99;pointer-events:none;}
+  #pop.show{display:flex;}
+  #pop .core{font-size:38px;font-weight:900;color:#ffd23d;text-shadow:0 0 30px rgba(255,210,61,.8);
+       animation:pop .5s ease, wob 1.6s ease .4s;background:rgba(10,20,48,.85);border:2px solid #33589e;
+       border-radius:16px;padding:14px 24px;text-align:center;line-height:1.5;}
+  @keyframes pop{0%{transform:scale(.2);opacity:0;}100%{transform:scale(1);opacity:1;}}
+  @keyframes wob{0%,100%{transform:rotate(0);}25%{transform:rotate(-5deg) scale(1.08);}75%{transform:rotate(5deg) scale(1.04);}}
+  .scrub{display:flex;align-items:center;gap:12px;padding:10px 4px 2px;flex-wrap:wrap;}
+  .scrub .lab{font-size:12px;color:#8fb4f5;white-space:nowrap;}
+  input[type=range]{flex:1;min-width:160px;height:6px;border-radius:3px;-webkit-appearance:none;appearance:none;
+       background:linear-gradient(90deg,#27407a,#67b0f6);outline:none;cursor:ew-resize;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:19px;height:19px;border-radius:50%;
+       background:var(--gold);border:3px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.5);cursor:grab;}
+  .curval{min-width:128px;text-align:center;font-size:13px;font-weight:700;color:var(--gold);
+       background:#0a1a38;border:1px solid #2c4a84;border-radius:9px;padding:6px 8px;}
+  .btn{border:none;padding:11px 18px;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;transition:all .15s;}
+  .btn.play{background:linear-gradient(120deg,#2a5191,#1e3a6e);color:#fff;}
+  .btn:hover{filter:brightness(1.12);}
+  .info{margin-top:10px;border-radius:12px;padding:12px 16px;font-size:13.5px;line-height:1.9;
+       background:#0f2148;border:1px solid #33589e;}
+  .info b.ok{color:#7ef0b6;} .info b.bad{color:#ff9d9d;} .info .lim{color:var(--gold);font-weight:700;}
+  .principle{margin-top:10px;border-radius:12px;padding:14px 16px;background:linear-gradient(120deg,#122a5c,#0a1a38);
+       border:1px solid #1c3a72;}
+  .principle h3{font-size:15px;color:var(--gold);margin-bottom:6px;letter-spacing:.5px;}
+  .principle .eq{font-size:13.5px;line-height:2;color:#d7e3ff;}
+  .principle .eq b{color:#7ef0b6;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="titlebar">
+    <h1>确界原理 <em>· 动画演示</em></h1>
+    <p>内置两个示例：<b>S = { 1 + 1/n }</b> 与 <b>S = { (−1)ⁿ/n }</b>。上/下确界模式 + 候选界 <b>M</b> 拖动判定；▶ 播放时<b>按 n = 1,2,… 逐点取值、慢速停留</b>。</p>
+  </div>
+
+  <div class="stage">
+    <div class="modes" id="exBar">
+      <button class="sample on" data-i="0">S = { 1 + 1/n }</button>
+      <button class="sample" data-i="1">S = { (−1)ⁿ/n }</button>
+    </div>
+    <div class="modes">
+      <button class="mode on" id="mSup">↑ 上确界 sup S</button>
+      <button class="mode" id="mInf">↓ 下确界 inf S</button>
+    </div>
+
+    <div class="wrap">
+      <canvas id="cv" width="940" height="320"></canvas>
+      <div id="pop"><span class="core" id="popTxt">🔍 sup S</span></div>
+    </div>
+
+    <div class="scrub">
+      <span class="lab" id="scrubLab">候选上界 M</span>
+      <input type="range" id="scrub" min="0" max="100" step="1" value="62">
+      <span class="curval" id="curVal">M = —</span>
+      <button class="btn play" id="playBtn">▶ 播放动画</button>
+    </div>
+
+    <div class="info" id="info"></div>
+
+    <div class="principle">
+      <h3>确界原理（实数系的完备性）</h3>
+      <div class="eq">
+        非空有上界的数集，必有<b>上确界</b>（最小上界）；非空有下界的数集，必有<b>下确界</b>（最大下界）。<br>
+        · 把所有上界画出来 → 组成半直线 [sup S, +∞)（绿色区域），绿色区域的<b>左端点</b>就是 sup S。<br>
+        · 上确界/下确界<b>不必</b>属于 S：<b>{1+1/n}</b> 的 inf = 1 是点列极限（∉S）；而 <b>{(−1)ⁿ/n}</b> 的 sup = 1/2、inf = −1 恰是最大/最小元素（∈S）—— 两种情形一网打尽。
+      </div>
+    </div>
+  </div>
+</div>
+<script>"use strict";
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const f2 = v => String(+v.toFixed(2));
+const f3 = v => String(+v.toFixed(3));
+const EX = [
+  {
+    id:"p", name:"S = { 1 + 1/n }", nMax:10, aOf: n => 1 + 1/n,
+    supV:2, supLab:"sup S = 2", infV:1, infLab:"inf S = 1",
+    axis:[0.7,2.4], ticks:[1,1.5,2,2.5],
+    range:{ sup:[1.02,2.25], inf:[0.7,2.1] },
+    zoneSup:"上界区域：所有上界 ≥ 2", zoneInf:"下界区域：所有下界 ≤ 1",
+    tag:"S = { 1 + 1/n : n ∈ ℕ }（显示前 10 项，从上方逼近 1）",
+    escSup(m){ return m >= 2 ? null : { x:2, lab:"最大点 2 在 M 右侧：2 > M" }; },
+    escInf(m){
+      if (m <= 1) return null;
+      const n = Math.floor(1/(m-1)) + 2, v = 1 + 1/n;
+      return { x:v, lab:"1 + 1/"+n+" = "+f3(v)+" < M（更贴 1 的点还会更小）" };
+    },
+    hit:{
+      sup:{ n:1, txt:"🔍 sup S = 2：a₁ 是最大元素，上确界 = 最大值（∈S）！" },
+      inf:{ n:10, txt:"🔍 连最贴 1 的 a₁₀ = 1.1 都 > 1 —— inf S = 1 是点列极限（∉S）" }
+    },
+    info:{
+      supOK:"<b class='ok'>M = {M} ≥ 2 ⟹ 是上界</b>：所有点都在它左侧。任何 ≥ 2 的数都是上界，组成绿色区域 [2, +∞)。<br>★ <span class='lim'>sup S = 2</span>：它是所有上界中最小的——再往左一点立刻漏掉最大点 2。<br>特别提醒：<b>2 ∈ S</b>（最大元素），上确界＝最大值。",
+      supBad:"<b class='bad'>M = {M} &lt; 2 ⟹ 不是上界</b>：最大点 <b>2</b>（红圈）被漏在它右侧。<br>★ 任何小于 2 的数<strong>都当不了上界</strong>，2 是<strong>最小上界</strong> → <span class='lim'>sup S = 2</span>。",
+      infOK:"<b class='ok'>M = {M} ≤ 1 ⟹ 是下界</b>：所有点都在它右侧。任何 ≤ 1 的数都是下界，组成绿色区域 (−∞, 1]。<br>★ <span class='lim'>inf S = 1</span>：1 是下界中最大的——比它大一点就漏掉贴近 1 的项。<br>特别提醒：<b>1 ∉ S</b>（点列贴着 1 却永远大于 1），下确界不一定在集合里。",
+      infBad:"<b class='bad'>M = {M} &gt; 1 ⟹ 不是下界</b>：红圈的点 <b>{esc}</b> 被漏在它左侧（n 越大越贴 1、越小）。只要 M &gt; 1，就有足够大的 n 让 1 + 1/n &lt; M。<br>★ 因此任何大于 1 的数都当不了下界，1 是最大下界 → <span class='lim'>inf S = 1</span>。"
+    }
+  },
+  {
+    id:"m", name:"S = { (−1)ⁿ/n }", nMax:10, aOf: n => (n % 2 === 0 ? 1 : -1) / n,
+    supV:0.5, supLab:"sup S = 1/2", infV:-1, infLab:"inf S = −1",
+    axis:[-1.3,0.98], ticks:[-1,-0.5,0,0.5],
+    range:{ sup:[-1.05,0.98], inf:[-1.05,0.98] },
+    zoneSup:"上界区域：所有上界 ≥ 1/2", zoneInf:"下界区域：所有下界 ≤ −1",
+    tag:"S = { (−1)ⁿ/n : n ∈ ℕ }（显示前 10 项：正负子列都收敛于 0）",
+    escSup(m){ return m >= 0.5 ? null : { x:0.5, lab:"最大元素 a₂ = 1/2 在 M 右侧：1/2 > M" }; },
+    escInf(m){ return m <= -1 ? null : { x:-1, lab:"最小元素 a₁ = −1 在 M 左侧：−1 < M" }; },
+    hit:{
+      sup:{ n:2, txt:"🔍 sup S = 1/2：a₂ 是全集最大元素，最小上界（∈S）！" },
+      inf:{ n:1, txt:"🔍 inf S = −1：a₁ 是全集最小元素，最大下界（∈S）！" }
+    },
+    info:{
+      supOK:"<b class='ok'>M = {M} ≥ 1/2 ⟹ 是上界</b>：所有点都在它左侧。任何 ≥ 1/2 的数都是上界，组成绿色区域 [1/2, +∞)。<br>★ <span class='lim'>sup S = 1/2</span>：它正是正子列的最大项 a₂——上确界＝最大值（∈S）。<br>注意：奇数项 −1, −1/3, … 全是负数，对“上界”毫无帮助。",
+      supBad:"<b class='bad'>M = {M} &lt; 1/2 ⟹ 不是上界</b>：正子列最大项 <b>1/2</b>（红圈）被漏在它右侧。<br>★ 任何小于 1/2 的数都当不了上界；播放可见只有走到 a₂ 那一步才算“及格” → <span class='lim'>sup S = 1/2</span>。",
+      infOK:"<b class='ok'>M = {M} ≤ −1 ⟹ 是下界</b>：所有点都在它右侧。任何 ≤ −1 的数都是下界，组成绿色区域 (−∞, −1]。<br>★ <span class='lim'>inf S = −1</span>：它正是奇数子列的起点 a₁，是全集的最小元素——下确界＝最小值（∈S）。",
+      infBad:"<b class='bad'>M = {M} &gt; −1 ⟹ 不是下界</b>：最小元素 <b>−1</b>（红圈）被漏在它左侧。<br>★ 任何大于 −1 的数都当不了下界 → <span class='lim'>inf S = −1</span>。补充：偶数项从 1/2 沉向 0⁺、奇数项从 −1 爬向 0⁻，但 0 既不是上界也不是下界。"
+    }
+  }
+];
+const state = { ex:0, mode:"sup", t:0.62, playing:false, token:null, hit:false, curN:null };
+const CV = $("cv"), ct = CV.getContext("2d");
+const W = CV.width, H = CV.height;
+const P = { l:56, r:26, t:34, b:42 };
+const pw = W - P.l - P.r, ph = H - P.t - P.b, axY = P.t + ph;
+const ex = () => EX[state.ex];
+const aOf = n => ex().aOf(n);
+const x2 = x => P.l + (x - ex().axis[0]) / (ex().axis[1] - ex().axis[0]) * pw;
+const rng = () => ex().range[state.mode === "sup" ? "sup" : "inf"];
+const M = () => { const r = rng(); return r[0] + (r[1] - r[0]) * state.t; };
+const tinv = mv => { const r = rng(); return (mv - r[0]) / (r[1] - r[0]); };
+const isUpper = () => M() >= ex().supV;
+const isLower = () => M() <= ex().infV;
+function rr(x,y,w,h,r){ ct.beginPath(); ct.moveTo(x+r,y);
+  ct.arcTo(x+w,y,x+w,y+h,r); ct.arcTo(x+w,y+h,x,y+h,r);
+  ct.arcTo(x,y+h,x,y,r); ct.arcTo(x,y,x+w,y,r); ct.closePath(); }
+function star(cx,cy,r){ ct.beginPath();
+  for (let i=0;i<10;i++){ const rad=i%2===0?r:r*0.42, a=-Math.PI/2+i*Math.PI/5;
+    const px=cx+rad*Math.cos(a), py=cy+rad*Math.sin(a);
+    i===0?ct.moveTo(px,py):ct.lineTo(px,py); } ct.closePath(); }
+function escapeInfo(){ const m=M();
+  return state.mode==="sup" ? ex().escSup(m) : ex().escInf(m); }function draw() {
+  const e = ex(), sup = state.mode === "sup";
+  const X0 = e.axis[0], X1 = e.axis[1];
+  ct.clearRect(0, 0, W, H);
+  const bg = ct.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#0e2148"); bg.addColorStop(1, "#081229");
+  ct.fillStyle = bg; ct.fillRect(0, 0, W, H);
+  const m = M(), ok = sup ? isUpper() : isLower(), bV = sup ? e.supV : e.infV;
+  /* 界区 */
+  ct.fillStyle = "rgba(94,232,166,.09)";
+  if (sup) ct.fillRect(x2(bV), P.t, x2(X1) - x2(bV), ph);
+  else     ct.fillRect(x2(X0), P.t, x2(bV) - x2(X0), ph);
+  ct.strokeStyle = "rgba(94,232,166,.7)"; ct.setLineDash([6, 4]); ct.lineWidth = 1.5;
+  ct.beginPath(); ct.moveTo(x2(bV), P.t); ct.lineTo(x2(bV), axY); ct.stroke();
+  ct.setLineDash([]);
+  ct.fillStyle = "#9ef7cd"; ct.font = "11.5px 'PingFang SC'";
+  ct.textAlign = "left"; ct.textBaseline = "top";
+  ct.fillText(sup ? e.zoneSup : e.zoneInf, (sup ? x2(bV) : x2(X0)) + 8, P.t + 8);
+  /* 数轴 */
+  ct.strokeStyle = "rgba(255,255,255,.65)"; ct.lineWidth = 1.8;
+  ct.beginPath(); ct.moveTo(P.l, axY); ct.lineTo(P.l + pw, axY); ct.stroke();
+  ct.fillStyle = "#8fa3c4"; ct.font = "11px 'Segoe UI'";
+  ct.textAlign = "center"; ct.textBaseline = "top";
+  for (const v of e.ticks) {
+    const gx = x2(v);
+    ct.strokeStyle = "rgba(120,170,255,.35)"; ct.lineWidth = 1;
+    ct.beginPath(); ct.moveTo(gx, axY - 5); ct.lineTo(gx, axY + 5); ct.stroke();
+    ct.fillStyle = "#8fa3c4"; ct.fillText(String(v), gx, axY + 8);
+  }
+  ct.fillStyle = "#7f93b8"; ct.font = "bold 12px 'Cambria Math'"; ct.textAlign = "left"; ct.textBaseline = "bottom";
+  ct.fillText("x", P.l + pw + 2, axY - 2);
+  /* 标签 */
+  ct.fillStyle = "#d7e3ff"; ct.font = "bold 14px 'Cambria Math'";
+  ct.textAlign = "left"; ct.textBaseline = "top";
+  ct.fillText(e.tag, P.l, P.t);
+  /* 点列 */
+  for (let n = 1; n <= e.nMax; n++) {
+    const x = e.aOf(n);
+    ct.fillStyle = "#67b0f6";
+    ct.beginPath(); ct.arc(x2(x), axY, 4, 0, 2 * Math.PI); ct.fill();
+    ct.strokeStyle = "rgba(230,244,255,.55)"; ct.lineWidth = .8; ct.stroke();
+  }
+  /* 星标 */
+  drawStarMark(x2(bV), sup ? e.supLab : e.infLab);
+  /* 徽章 */
+  const bx = P.l + pw - 130, by = P.t + 6;
+  const okTxt = ok ? "✓ 是" + (sup ? "上界" : "下界") : "✗ 不是" + (sup ? "上界" : "下界");
+  ct.fillStyle = ok ? "rgba(30,122,82,.85)" : "rgba(160,40,58,.85)";
+  rr(bx, by, 124, 30, 8); ct.fill();
+  ct.strokeStyle = ok ? "#5ee8a6" : "#ff8f9d"; ct.lineWidth = 1.6;
+  rr(bx, by, 124, 30, 8); ct.stroke();
+  ct.fillStyle = "#fff"; ct.font = "bold 14px 'PingFang SC'"; ct.textAlign = "center"; ct.textBaseline = "middle";
+  ct.fillText(okTxt, bx + 62, by + 16);
+  /* 候选线 M（金色：顶端避开标题文字带，标签向侧面偏移避开竖线） */
+  ct.strokeStyle = "#ffd23d"; ct.lineWidth = 2.2;
+  ct.beginPath(); ct.moveTo(x2(m), P.t + 74); ct.lineTo(x2(m), axY); ct.stroke();
+  if (state.curN === null) {
+    const gm = x2(m), rightM = gm > P.l + pw * 0.76;
+    ct.fillStyle = "#ffd23d"; ct.font = "bold 12px 'Cambria Math'";
+    ct.textAlign = rightM ? "right" : "left"; ct.textBaseline = "bottom";
+    ct.fillText("M = " + f2(m), rightM ? gm - 16 : gm + 16, axY - 26);
+  }
+  /* 红点（漏掉的极端点：标签移到数轴下方，避免跟当前点/候选线标签挤在一起） */
+  const esc = escapeInfo();
+  if (esc) {
+    const exx = x2(esc.x), blink = 0.55 + 0.45 * Math.abs(Math.sin(state.t * 40));
+    ct.strokeStyle = "rgba(255,107,107," + blink.toFixed(2) + ")"; ct.lineWidth = 3;
+    ct.beginPath(); ct.arc(exx, axY, 9, 0, 2 * Math.PI); ct.stroke();
+    ct.fillStyle = "rgba(255,107,107,.28)";
+    ct.beginPath(); ct.arc(exx, axY, 6, 0, 2 * Math.PI); ct.fill();
+    ct.setLineDash([4, 3]); ct.strokeStyle = "rgba(255,107,107,.6)"; ct.lineWidth = 1;
+    ct.beginPath(); ct.moveTo(exx, axY + 5); ct.lineTo(exx, axY + 18); ct.stroke(); ct.setLineDash([]);
+    ct.fillStyle = "#ff9d9d"; ct.font = "bold 11.5px 'Cambria Math'";
+    ct.textAlign = "center"; ct.textBaseline = "top";
+    ct.fillText(esc.lab, Math.min(Math.max(exx, P.l + 150), P.l + pw - 150), axY + 22);
+  }
+  /* 当前点 aₙ 高亮 */
+  if (state.curN !== null) {
+    const v = e.aOf(state.curN), cx = x2(v), pulse = 1 + 0.12 * Math.abs(Math.sin(state.t * 22));
+    ct.strokeStyle = "#ffd23d"; ct.lineWidth = 3;
+    ct.beginPath(); ct.arc(cx, axY, 9.5 * pulse, 0, 2 * Math.PI); ct.stroke();
+    ct.strokeStyle = "#fff"; ct.lineWidth = 1.5;
+    ct.beginPath(); ct.arc(cx, axY, 5.5, 0, 2 * Math.PI); ct.stroke();
+    ct.fillStyle = "#ffd23d"; ct.font = "bold 13.5px 'Cambria Math'";
+    const rightA = cx > P.l + pw * 0.76;
+    ct.textAlign = rightA ? "right" : "left"; ct.textBaseline = "bottom";
+    ct.fillText("a_" + state.curN + " = " + f3(v), rightA ? cx - 18 : cx + 18, axY - 34);
+  }
+  /* 范围刻度 */
+  ct.fillStyle = "#7f93b8"; ct.font = "10.5px 'Segoe UI'"; ct.textAlign = "center"; ct.textBaseline = "top";
+  ct.fillText(f2(X0), x2(X0), axY + 8);
+  ct.fillText(f2(X1), x2(X1), axY + 8);
+  updateInfo(sup, m, ok, esc);
+}
+function drawStarMark(gx, lab) {
+  const sy = P.t + 62;
+  if (state.hit) {
+    const k = 1 + 0.35 * Math.abs(Math.sin(state.t * 16));
+    star(gx, sy, 9 * k);
+    ct.fillStyle = "rgba(255,210,61,.92)"; ct.fill();
+    ct.strokeStyle = "#fff"; ct.lineWidth = 1.6; ct.stroke();
+  } else {
+    star(gx, sy, 9);
+    ct.fillStyle = "#ffd23d"; ct.fill();
+    ct.strokeStyle = "#fff"; ct.lineWidth = 1.6; ct.stroke();
+  }
+  ct.fillStyle = "#ffd23d"; ct.font = "bold 15px 'Cambria Math'";
+  ct.textAlign = "left"; ct.textBaseline = "middle";
+  if (state.hit) {
+    const k = 1 + 0.3 * Math.abs(Math.sin(state.t * 16));
+    ct.save(); ct.translate(gx, sy); ct.scale(k, k); ct.translate(-gx, -sy);
+    ct.fillText(lab, gx + 16, sy);
+    ct.restore();
+  } else ct.fillText(lab, gx + 16, sy);
+}
+function updateInfo(sup, m, ok, esc) {
+  const tpl = ex().info;
+  const key = sup ? (ok ? "supOK" : "supBad") : (ok ? "infOK" : "infBad");
+  $("info").innerHTML = tpl[key].replace("{M}", f2(m)).replace("{esc}", esc ? esc.lab : "");
+  $("scrubLab").textContent = sup ? "候选上界 M" : "候选下界 M";
+  $("curVal").textContent = state.curN !== null
+    ? "n = " + state.curN + "，M = aₙ = " + f3(aOf(state.curN))
+    : "M = " + f2(m);
+}
+function syncScrub() {
+  const s = $("scrub"), v = Math.round(state.t * 100);
+  if (s.value != v) s.value = v;
+}
+function jingle(notes, type, vol, dur) {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ac = new AC();
+    notes.forEach((f, i) => {
+      const t = ac.currentTime + i * 0.13;
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = type || "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(ac.destination);
+      o.start(t); o.stop(t + dur + 0.05);
+    });
+  } catch (e) {}
+}
+function pop(txt) {
+  const p = $("pop");
+  $("popTxt").textContent = txt;
+  p.classList.remove("show"); void p.offsetWidth; p.classList.add("show");
+  setTimeout(() => p.classList.remove("show"), 3000);
+}
+function stopPlay() {
+  if (state.token) { state.token.stop = true; state.token = null; }
+  state.playing = false; state.curN = null;
+  $("playBtn").textContent = "▶ 播放动画";
+}
+async function play() {
+  if (state.playing) return;
+  state.playing = true; state.hit = false; state.curN = null;
+  const token = { stop: false }; state.token = token;
+  const b = $("playBtn"); b.textContent = "■ 停止";
+  const sup = state.mode === "sup", e = ex();
+  const hit = e.hit[sup ? "sup" : "inf"];
+  const dwell = 950;                   // 每步停留（慢速）
+  const lastDwell = 3200;               // 最后一项停留更久，让结论看个够
+  for (let n = 1; n <= e.nMax && !token.stop; n++) {
+    const mv = e.aOf(n);
+    state.t = Math.min(1, Math.max(0, tinv(mv)));
+    state.curN = n;
+    if (hit && n === hit.n && !state.hit) {
+      state.hit = true;
+      jingle([523.25, 659.25, 783.99], "sine", 0.24, 0.5);
+      pop(hit.txt);
+    }
+    draw(); syncScrub();
+    await sleep(n === e.nMax ? lastDwell : dwell);
+  }
+  if (!token.stop) await sleep(1200);   // 播放收尾：结束画面再多停留一会儿
+  state.playing = false; token.stop = false; state.token = null;
+  state.curN = null;
+  b.textContent = "▶ 重新播放";
+}$("scrub").addEventListener("input", e => {
+  if (state.playing) stopPlay();
+  state.t = parseInt(e.target.value, 10) / 100;
+  state.hit = false; state.curN = null;
+  draw();
+});
+$("playBtn").addEventListener("click", () => {
+  if (state.playing) { state.token && (state.token.stop = true); }
+  else play();
+});
+function setMode(mode) {
+  state.mode = mode; state.hit = false;
+  $("mSup").classList.toggle("on", mode === "sup");
+  $("mInf").classList.toggle("on", mode === "inf");
+  draw(); syncScrub();
+}
+$("mSup").addEventListener("click", () => setMode("sup"));
+$("mInf").addEventListener("click", () => setMode("inf"));
+function setEx(i) {
+  if (state.playing) stopPlay();
+  state.ex = i; state.hit = false; state.curN = null; state.t = 0.62;
+  document.querySelectorAll("#exBar .sample").forEach(b => b.classList.toggle("on", +b.dataset.i === i));
+  draw(); syncScrub();
+}
+document.querySelectorAll("#exBar .sample").forEach(b =>
+  b.addEventListener("click", () => setEx(+b.dataset.i)));
+/* ---------- 初始化 ---------- */
+draw(); syncScrub();
+</script>
+</body>
+</html>

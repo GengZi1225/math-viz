@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>无穷小判断 · 交互式闯关</title>
+<style>
+  :root{
+    --bg:#0a1428; --card:#0d1b3a; --panel:#0f2148; --title1:#0a1428; --title2:#1e3a6e;
+    --orange:#ff9f2e; --gold:#ffd23d; --red:#ff6b6b; --blue:#67b0f6; --green:#5ee8a6;
+    --text:#e8eff9; --muted:#8fa3c4; --line:#27407a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:#050d1f;color:var(--text);
+       display:flex;justify-content:center;padding:18px 12px;}
+  .app{width:100%;max-width:1020px;background:var(--card);border-radius:16px;border:1px solid #1c3a72;
+       box-shadow:0 24px 60px rgba(0,0,0,.5);overflow:hidden;}
+  .titlebar{background:linear-gradient(120deg,var(--title1),var(--title2));color:#fff;
+       padding:12px 26px 10px;border-bottom:1px solid #27407a;}
+  .titlebar h1{font-size:21px;font-weight:700;letter-spacing:1px;}
+  .titlebar h1 em{font-style:normal;color:var(--gold);}
+  .titlebar p{font-size:12px;opacity:.88;color:#a9c2ee;margin-top:4px;line-height:1.6;}
+  .stage{padding:12px 20px 18px;}
+  .qbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+       background:#0f2148;border:1px solid #33589e;border-radius:12px;padding:12px 18px;margin-bottom:10px;}
+  .qnum{font-size:15px;font-weight:800;color:var(--gold);white-space:nowrap;}
+  .ctx{font-size:13px;color:#8fb4f5;background:#0a1a38;border:1px solid #27407a;border-radius:8px;
+       padding:4px 10px;white-space:nowrap;}
+  .expr{font-size:24px;font-weight:800;color:#fff;font-family:'Cambria Math','Times New Roman',serif;margin-right:auto;}
+  .qask{font-size:14px;color:#d7e3ff;white-space:nowrap;}
+  .qask b{color:var(--gold);}
+  canvas#cv{width:100%;border-radius:10px;background:radial-gradient(circle at 50% 42%,#12285a,#060f22 80%);
+       border:1px solid #1c3a72;}
+  .scrub{display:flex;align-items:center;gap:12px;padding:8px 4px 2px;}
+  .scrub .lab{font-size:12px;color:#8fb4f5;white-space:nowrap;}
+  input[type=range]{flex:1;height:6px;border-radius:3px;-webkit-appearance:none;appearance:none;
+       background:linear-gradient(90deg,#27407a,#67b0f6);outline:none;cursor:ew-resize;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:19px;height:19px;border-radius:50%;
+       background:var(--gold);border:3px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.5);cursor:grab;}
+  .curval{min-width:150px;text-align:center;font-size:13px;font-weight:700;color:var(--gold);
+       background:#0a1a38;border:1px solid #2c4a84;border-radius:9px;padding:5px 8px;}
+  .that{display:flex;justify-content:space-between;font-size:11.5px;color:#7f93b8;padding:0 4px;margin-top:2px;}
+  .ans{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;align-items:center;}
+  .btn{border:none;padding:12px 20px;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;transition:all .15s;}
+  .btn.yes{background:linear-gradient(120deg,#1e7a52,#36b377);color:#fff;flex:1;min-width:140px;}
+  .btn.no{background:linear-gradient(120deg,#8c2737,#c2505f);color:#fff;flex:1;min-width:140px;}
+  .btn.play{background:linear-gradient(120deg,#2a5191,#1e3a6e);color:#fff;padding:11px 16px;font-size:13.5px;}
+  .btn.prev{background:#152a55;color:#cfe0ff;border:1px solid #33589e;padding:11px 16px;font-size:13.5px;}
+  .btn:hover{filter:brightness(1.12);}
+  .btn:disabled{opacity:.4;cursor:default;filter:none;}
+  .btn.nxt{background:linear-gradient(120deg,#c98a1e,#ff9f2e);color:#1a1000;}
+  .feedback{display:none;margin-top:12px;border-radius:12px;padding:12px 16px;font-size:14px;line-height:1.8;}
+  .feedback.show{display:block;}
+  .feedback.right{background:#0e2a21;border:1px solid #1f6f52;}
+  .feedback.wrong{background:#2a1018;border:1px solid #8f3a4a;}
+  .feedback h3{font-size:16px;margin-bottom:4px;}
+  .feedback.right h3{color:#7ef0b6;}
+  .feedback.wrong h3{color:#ff9d9d;}
+  .feedback .lim{color:var(--gold);font-weight:700;}
+  .over{display:none;text-align:center;padding:26px 18px;}
+  .over.show{display:block;}
+  .over h2{font-size:25px;margin-bottom:8px;color:var(--gold);}
+  .over .big{font-size:46px;font-weight:900;color:#fff;margin:10px 0;}
+  .over p{font-size:15px;color:#d7e3ff;line-height:2;}
+  .over .btn{margin-top:16px;}
+  /* 鼓掌祝贺 */
+  #cheer{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:99;pointer-events:none;}
+  #cheer.show{display:flex;}
+  #cheer .core{font-size:52px;font-weight:900;color:#ffd23d;text-shadow:0 0 30px rgba(255,210,61,.8);
+       animation:pop .5s ease, wob 1.6s ease .4s;}
+  #cheer .hand{position:absolute;font-size:40px;opacity:0;animation:fly 1.5s ease forwards;}
+  @keyframes pop{0%{transform:scale(.2);opacity:0;}100%{transform:scale(1);opacity:1;}}
+  @keyframes wob{0%,100%{transform:rotate(0);}25%{transform:rotate(-6deg) scale(1.1);}75%{transform:rotate(6deg) scale(1.05);}}
+  @keyframes fly{0%{transform:translateY(30px) scale(.5);opacity:0;}15%{opacity:1;}
+       100%{transform:translateY(-120px) scale(1.4) rotate(var(--r));opacity:0;}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="titlebar">
+    <h1>无穷小判断 <em>· 闯关</em></h1>
+    <p>共 5 题。曲线完整显示，拖动下方滑块观察上图点的位置与取值变化；判对 +20 分并收获掌声。</p>
+  </div>
+
+  <div class="stage">
+    <div class="qbar">
+      <span class="qnum" id="qnum">第 1/5 题</span>
+      <span class="ctx" id="ctx">x → 0</span>
+      <span class="expr" id="expr">f(x) = sin x</span>
+      <span class="qask" id="qask">是不是<b>无穷小</b>？</span>
+    </div>
+
+    <div class="plotwrap" style="position:relative;">
+      <canvas id="cv" width="940" height="360"></canvas>
+      <div id="cheer"><span class="hand" style="left:26%;top:50%;--r:-12deg;">👏</span>
+        <span class="hand" style="left:64%;top:50%;--r:10deg;">👏</span>
+        <span class="hand" style="left:80%;top:50%;--r:14deg;">👏</span>
+        <span class="core" id="cheerTxt">👏 回答正确！</span></div>
+    </div>
+
+    <div class="scrub">
+      <span class="lab" id="scrubLab">趋近观察点</span>
+      <input type="range" id="scrub" min="0" max="100" step="1" value="60">
+      <span class="curval" id="curVal">f = —</span>
+    </div>
+    <div class="that"><span id="prog">得分 0 / 100</span><span id="hint"></span></div>
+
+    <div class="ans">
+      <button class="btn prev" id="btnPrev">← 上一题</button>
+      <button class="btn play" id="playBtn">▶ 播放动画</button>
+      <button class="btn yes" id="btnYes">✅ 是无穷小</button>
+      <button class="btn no" id="btnNo">❌ 不是无穷小</button>
+      <button class="btn nxt" id="btnNext" style="display:none;">下一题 →</button>
+    </div>
+
+    <div class="feedback" id="fb"></div>
+
+    <div class="over" id="over">
+      <h2>无穷小判断 · 答题完成！</h2>
+      <div class="big" id="ovScore">0 / 100</div>
+      <p id="ovTxt"></p>
+      <button class="btn nxt" id="btnRestart">↺ 重新闯关</button>
+    </div>
+  </div>
+</div>
+<script>
+"use strict";
+/* ============================================================
+ * 无穷小判断 · 5 题闯关 v2
+ * 函数题：曲线完整(左右两侧)显示；滑块拖动→金色点沿曲线移动观察趋势
+ * 数列题：点列完整，滑块控制当前项；答对→掌声👏祝贺
+ * ============================================================ */
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------- 5 题（xr 对称全幅，yr 含参考线；clip 用于切断无穷支） ---------- */
+const QUEST = [
+  { ctx: "x → 0", expr: "f(x) = sin x", kind: "fn", f: x => Math.sin(x), mode: "dual", span: 3.2,
+    xr: [-3.2, 3.2], yr: [-1.4, 1.4], clip: null, ans: true,
+    lim: "lim sin x = 0（x→0）", note: "左右两支同时贴向 x 轴穿过 0 → 无穷小。播放可见两个金点从左右两侧同趋 x=0。" },
+  { ctx: "x → 0", expr: "f(x) = x·sin(1/x)", kind: "fn", f: x => x * Math.sin(1 / x), mode: "dual", span: 0.62,
+    xr: [-0.65, 0.65], yr: [-0.75, 0.75], clip: null, ans: true,
+    lim: "lim x·sin(1/x) = 0（x→0）", note: "左右两侧高频振荡都被 |x| 夹逼到 0（夹逼定理）→ 无穷小。两侧振幅同步塌缩。" },
+  { ctx: "x → +∞", expr: "f(x) = 1/x", kind: "fn", f: x => 1 / x,
+    xr: [-12, 12], yr: [-3.4, 3.4], clip: 3.2, from: 1, to: 12, ans: true,
+    lim: "lim 1/x = 0（x→∞）", note: "x 不断增大（→+∞）时 1/x 被压向 0（水平渐近线）→ 无穷小。播放可见右侧点越走越小。" },
+  { ctx: "x → 0", expr: "f(x) = x²", kind: "fn", f: x => x * x, mode: "dual", span: 1.36,
+    xr: [-1.4, 1.4], yr: [-0.35, 2.1], clip: null, ans: true,
+    lim: "lim x² = 0（x→0）", note: "抛物线左右末端都俯冲向 0，二次方让归零更快 → 无穷小。" },
+  { ctx: "n → ∞", expr: "a<sub>n</sub> = 1 + 1/n", kind: "seq", f: k => 1 + 1 / k,
+    nMax: 24, base: 1, ans: false,
+    lim: "lim (1+1/n) = 1", note: "n 不断增大（→+∞）时点列稳稳趋向 1 而不是 0（终点陷阱题）→ 不是无穷小。" }
+];
+
+const state = { idx: 0, score: 0, done: false, playing: false, token: null, t: 0.6,
+                 answered: {}, prevView: false, returnIdx: 0 };
+const cv = $("cv"), ct = cv.getContext("2d");
+const W = cv.width, H = cv.height;
+const CUR = () => QUEST[state.idx];
+const fmt = v => Math.abs(v - Math.round(v)) < 1e-9 ? String(Math.round(v)) : (+v.toFixed(3));
+const T = () => state.t;
+
+/* 观察：x→0（dual）→ 左右两点随 t 收拢；x→+∞ → 单点右行；数列 → 第 n 项 */
+const dualR = q => q.span * (1 - T()) + 0.02;          // 趋近半径（0.02≈贴到 0）
+const obsX = q => q.from + (q.to - q.from) * T();
+const obsN = q => Math.max(1, Math.round(1 + T() * (q.nMax - 1)));
+
+/* ---------- 绘制函数（完整曲线 + 金色观察点） ---------- */
+function drawFn() {
+  const q = CUR();
+  ct.clearRect(0, 0, W, H);
+  const bg = ct.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#0e2148"); bg.addColorStop(1, "#081229");
+  ct.fillStyle = bg; ct.fillRect(0, 0, W, H);
+  const P = { l: 52, r: 18, t: 20, b: 30 };
+  const [x0, x1] = q.xr, [lo, hi] = q.yr;
+  const pw = W - P.l - P.r, ph = H - P.t - P.b;
+  const x2 = x => P.l + (x - x0) / (x1 - x0) * pw;
+  const y2 = v => P.t + (hi - v) / (hi - lo) * ph;
+  const inY = v => v > (lo - 20) && v < (hi + 20);
+
+  /* 网格 */
+  ct.strokeStyle = "rgba(120,170,255,.12)"; ct.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const yy = P.t + ph * i / 4;
+    ct.beginPath(); ct.moveTo(P.l, yy); ct.lineTo(P.l + pw, yy); ct.stroke();
+  }
+  /* 坐标轴：x 轴（= 蓝色目标线 0）+ y 轴（白色竖线），均带箭头 */
+  const hasXAxis = lo < 0 && hi > 0;
+  const hasYAxis = x0 < 0 && x1 > 0;
+  /* y 轴 */
+  if (hasYAxis) {
+    const ax = x2(0);
+    ct.strokeStyle = "rgba(255,255,255,.55)"; ct.lineWidth = 1.6;
+    ct.beginPath(); ct.moveTo(ax, P.t + ph); ct.lineTo(ax, P.t + 4); ct.stroke();
+    arrowTri(ax, P.t + 4, ax, P.t - 2, "rgba(255,255,255,.7)");         // 顶部箭头
+    ct.fillStyle = "#d7e3ff"; ct.font = "bold 13px 'Cambria Math'";
+    ct.textAlign = "left"; ct.textBaseline = "bottom";
+    ct.fillText("y", ax + 5, P.t - 2);
+  }
+  /* x 轴 = 目标线 0（蓝色） */
+  if (hasXAxis) {
+    const ay = y2(0);
+    ct.strokeStyle = "rgba(79,195,247,.95)"; ct.lineWidth = 2.2;
+    ct.beginPath(); ct.moveTo(P.l, ay); ct.lineTo(P.l + pw - 4, ay); ct.stroke();
+    arrowTri(P.l + pw - 4, ay, P.l + pw + 2, ay, "rgba(79,195,247,.95)"); // 右端箭头
+    ct.fillStyle = "#9bd7ff"; ct.font = "bold 13px 'Cambria Math'";
+    ct.textAlign = "left"; ct.textBaseline = "bottom";
+    ct.fillText("x", P.l + pw + 7, ay - 3);
+    ct.font = "bold 11px 'PingFang SC'";
+    ct.fillText("目标线 0", P.l + 4, ay - 4);
+  }
+  /* 刻度 */
+  ct.fillStyle = "#7f93b8"; ct.font = "10.5px 'Segoe UI'";
+  ct.textAlign = "right"; ct.textBaseline = "middle";
+  for (const v of [hi, lo, 0]) if (v !== 0) ct.fillText(fmt(v), P.l - 6, y2(v));
+
+  /* 完整曲线（左右两侧都显示；遇断点跳开；|y|>clip 裁剪） */
+  const N = 900;
+  ct.strokeStyle = "#ff9f2e"; ct.lineWidth = 3; ct.lineJoin = "round";
+  ct.beginPath();
+  let pen = false, lastX = null;
+  for (let i = 0; i <= N; i++) {
+    const x = x0 + (x1 - x0) * i / N;
+    const v = q.f(x);
+    const ok = isFinite(v) && inY(v) && (q.clip === null || Math.abs(v) <= q.clip);
+    const sx = x2(x);
+    if (ok) {
+      const sy = y2(v);
+      const gap = lastX !== null && Math.abs(x - lastX) > (x1 - x0) / N * 1.6;
+      if (pen && !gap) ct.lineTo(sx, sy); else { pen = true; ct.moveTo(sx, sy); }
+      lastX = x;
+    } else pen = false;
+  }
+  ct.stroke();
+
+  /* 金色观察点（x→0 双侧同时趋近；x→+∞ 单点右行） */
+  if (q.mode === "dual") {
+    const r = dualR(q);
+    const xs = [-r, r];
+    let txt = "";
+    xs.forEach(x => {
+      const v = q.f(x);
+      if (!isFinite(v) || !inY(v)) return;
+      const px = x2(x), py = y2(v);
+      ct.fillStyle = "#ffd23d";
+      ct.beginPath(); ct.arc(px, py, 6, 0, 2 * Math.PI); ct.fill();
+      ct.strokeStyle = "#fff"; ct.lineWidth = 2; ct.stroke();
+      ct.strokeStyle = "rgba(255,210,61,.5)"; ct.setLineDash([4, 3]); ct.lineWidth = 1;
+      ct.beginPath(); ct.moveTo(px, P.t + 4); ct.lineTo(px, P.t + ph - 4); ct.stroke();
+      ct.setLineDash([]);
+      txt += (txt ? "　" : "") + "f(" + fmt(x) + ")=" + fmt(v);
+    });
+    $("curVal").textContent = "x = ±" + fmt(r) + "　" + txt;
+  } else {
+    const ox = obsX(q), ov = q.f(ox);
+    if (isFinite(ov) && inY(ov)) {
+      const px = x2(ox), py = y2(ov);
+      ct.fillStyle = "#ffd23d";
+      ct.beginPath(); ct.arc(px, py, 6, 0, 2 * Math.PI); ct.fill();
+      ct.strokeStyle = "#fff"; ct.lineWidth = 2; ct.stroke();
+      ct.strokeStyle = "rgba(255,210,61,.5)"; ct.setLineDash([4, 3]); ct.lineWidth = 1;
+      ct.beginPath(); ct.moveTo(px, P.t + 4); ct.lineTo(px, P.t + ph - 4); ct.stroke();
+      ct.setLineDash([]);
+      $("curVal").textContent = "(" + fmt(ox) + ", " + fmt(ov) + ")";
+    }
+  }
+  /* x 刻度 */
+  ct.fillStyle = "#8fa3c4"; ct.font = "11px 'Segoe UI'";
+  ct.textAlign = "center"; ct.textBaseline = "top";
+  const step = (x1 - x0) / 4;
+  for (let i = 0; i <= 4; i++) ct.fillText(fmt(x0 + step * i), x2(x0 + step * i), P.t + ph + 6);
+  ct.textAlign = "left"; ct.textBaseline = "bottom";
+  ct.fillStyle = "#d7e3ff"; ct.font = "bold 14px 'Cambria Math'";
+  ct.fillText(q.expr + "　（拖动滑块观察曲线上点的变化）", P.l, 16);
+}
+
+/* ---------- 绘制数列点列 ---------- */
+function drawSeq() {
+  const q = CUR();
+  ct.clearRect(0, 0, W, H);
+  const bg = ct.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#0e2148"); bg.addColorStop(1, "#081229");
+  ct.fillStyle = bg; ct.fillRect(0, 0, W, H);
+  const P = { l: 52, r: 18, t: 20, b: 30 };
+  const nMax = q.nMax;
+  const vals = [];
+  for (let i = 1; i <= nMax; i++) vals.push(q.f(i));
+  let lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
+  const sp = (hi - lo) || 0.5;
+  lo -= sp * 0.12; hi += sp * 0.12;
+  const pw = W - P.l - P.r, ph = H - P.t - P.b;
+  const x2 = i => P.l + (i - 1) / (nMax - 1) * pw;
+  const y2 = v => P.t + (hi - v) / (hi - lo) * ph;
+
+  ct.strokeStyle = "rgba(120,170,255,.12)"; ct.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const yy = P.t + ph * i / 4;
+    ct.beginPath(); ct.moveTo(P.l, yy); ct.lineTo(P.l + pw, yy); ct.stroke();
+  }
+  const bl = q.base;
+  if (bl > lo && bl < hi) {
+    ct.strokeStyle = "rgba(79,195,247,.9)"; ct.setLineDash([7, 5]); ct.lineWidth = 1.8;
+    ct.beginPath(); ct.moveTo(P.l, y2(bl)); ct.lineTo(P.l + pw, y2(bl)); ct.stroke();
+    ct.setLineDash([]);
+    ct.fillStyle = "#9bd7ff"; ct.font = "bold 11px 'PingFang SC'";
+    ct.textAlign = "left"; ct.textBaseline = "bottom";
+    ct.fillText("目标线 y = " + fmt(bl), P.l + 4, y2(bl) - 3);
+  }
+  ct.fillStyle = "#7f93b8"; ct.font = "10.5px 'Segoe UI'";
+  ct.textAlign = "right"; ct.textBaseline = "middle";
+  for (const v of [hi, lo]) ct.fillText(fmt(v), P.l - 6, y2(v));
+
+  /* 全部点列 + 当前点高亮 */
+  for (let i = 1; i <= nMax; i++) {
+    const px = x2(i), py = y2(vals[i - 1]);
+    if (i === obsN(q)) {
+      ct.fillStyle = "#ffd23d";
+      ct.beginPath(); ct.arc(px, py, 6, 0, 2 * Math.PI); ct.fill();
+      ct.strokeStyle = "#fff"; ct.lineWidth = 2; ct.stroke();
+    } else {
+      ct.fillStyle = "#67b0f6";
+      ct.beginPath(); ct.arc(px, py, 3.6, 0, 2 * Math.PI); ct.fill();
+    }
+  }
+  ct.fillStyle = "#ffd23d"; ct.font = "bold 12px 'Segoe UI'";
+  ct.textAlign = "left"; ct.textBaseline = "bottom";
+  const cn = obsN(q);
+  ct.fillText("a_" + cn + " = " + fmt(vals[cn - 1]), x2(cn) + 8, y2(vals[cn - 1]) - 5);
+  ct.fillStyle = "#8fa3c4"; ct.font = "11px 'Segoe UI'";
+  ct.textAlign = "center"; ct.textBaseline = "top";
+  for (let i = 1; i <= nMax; i += 5) ct.fillText(String(i), x2(i), P.t + ph + 6);
+  ct.textAlign = "left"; ct.textBaseline = "bottom";
+  ct.fillStyle = "#d7e3ff"; ct.font = "bold 14px 'Cambria Math'";
+  ct.fillText(q.expr.replace("a<sub>n</sub>", "aₙ") + "　（拖动滑块看点列的项次变化）", P.l, 16);
+  $("curVal").textContent = "n = " + cn + "，aₙ = " + fmt(vals[cn - 1]);
+}
+
+const drawC = () => CUR().kind === "fn" ? drawFn() : drawSeq();
+/* 轴端小三角箭头 */
+function arrowTri(x1, y1, x2, y2, col) {
+  const ang = Math.atan2(y2 - y1, x2 - x1);
+  ct.fillStyle = col; ct.strokeStyle = col;
+  ct.beginPath();
+  ct.moveTo(x2, y2);
+  ct.lineTo(x2 - 10 * Math.cos(ang - 0.4), y2 - 10 * Math.sin(ang - 0.4));
+  ct.lineTo(x2 - 10 * Math.cos(ang + 0.4), y2 - 10 * Math.sin(ang + 0.4));
+  ct.closePath(); ct.fill();
+}
+function syncScrub() {
+  const s = $("scrub");
+  const v = Math.round(T() * 100);
+  if (s.value != v) s.value = v;
+}
+
+/* ---------- 动画：滑块自动扫描 ---------- */
+function stopPlay() {
+  if (state.token) { state.token.stop = true; state.token = null; }
+  state.playing = false;
+  $("playBtn").textContent = "▶ 播放动画";
+  $("btnYes").disabled = false; $("btnNo").disabled = false;
+}
+async function play() {
+  if (state.playing) return;
+  state.playing = true;
+  state.t = 0;
+  const token = { stop: false };
+  state.token = token;
+  const b = $("playBtn");
+  b.textContent = "■ 停止";
+  $("btnYes").disabled = true; $("btnNo").disabled = true;
+  const dur = 2400;
+  const t0 = performance.now();
+  while (state.t < 1) {
+    if (token.stop) break;
+    state.t = Math.min(1, (performance.now() - t0) / dur);
+    drawC(); syncScrub();
+    await sleep(30);
+  }
+  state.playing = false;
+  token.stop = false;
+  state.token = null;
+  b.textContent = "▶ 重新播放";
+  $("btnYes").disabled = false; $("btnNo").disabled = false;
+}
+
+/* ---------- 通用音效 ---------- */
+function jingle(notes, type, vol, dur) {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ac = new AC();
+    const v = vol || 0.25, d = dur || 0.5;
+    notes.forEach((f, i) => {
+      const t = ac.currentTime + i * 0.13;
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = type || "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(v, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(g); g.connect(ac.destination);
+      o.start(t); o.stop(t + d + 0.05);
+    });
+  } catch (e) {}
+}
+function soundWrong() {
+  /* 答错：低沉“嘟嘟”下行音 */
+  jingle([196, 155.56], "sawtooth", 0.14, 0.34);
+}
+
+/* ---------- 庆祝铃声（上行琶音 C5-E5-G5-C6，清脆悦耳）＋ 祝贺浮层 ---------- */
+function clap() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ac = new AC();
+    const notes = [523.25, 659.25, 783.99, 1046.5];   // C5 E5 G5 C6
+    notes.forEach((f, i) => {
+      const t = ac.currentTime + i * 0.11;
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.32, t + 0.025);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+      o.connect(g); g.connect(ac.destination);
+      o.start(t); o.stop(t + 0.65);
+      // 明亮泛音（三角波 +1 八度），让声音更透亮
+      const o2 = ac.createOscillator(), g2 = ac.createGain();
+      o2.type = "triangle"; o2.frequency.value = f * 2;
+      g2.gain.setValueAtTime(0.0001, t);
+      g2.gain.exponentialRampToValueAtTime(0.07, t + 0.02);
+      g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
+      o2.connect(g2); g2.connect(ac.destination);
+      o2.start(t); o2.stop(t + 0.45);
+    });
+  } catch (e) {}
+}
+function cheer(txt) {
+  const c = $("cheer");
+  $("cheerTxt").textContent = txt || "👏 回答正确！";
+  c.classList.remove("show");
+  void c.offsetWidth;
+  c.classList.add("show");
+  setTimeout(() => c.classList.remove("show"), 2200);
+}
+
+/* ---------- 作答（每题仅一次，分数≤100） ---------- */
+function answer(choice) {
+  if (state.done || state.answered[state.idx] !== undefined) return;
+  stopPlay();
+  const q = CUR();
+  const right = choice === q.ans;
+  state.answered[state.idx] = choice;
+  if (right) { state.score = Math.min(100, state.score + 20); clap(); cheer("👏 回答正确！"); }
+  else { soundWrong(); }
+  state.done = true;
+  const fb = $("fb");
+  fb.className = "feedback show " + (right ? "right" : "wrong");
+  fb.innerHTML = "<h3>" + (right ? "👏 太棒了，回答正确！" : "❌ 判断错误") + "</h3>" +
+    "<span class='lim'>" + q.lim + "</span><br>" + q.note;
+  $("btnYes").style.display = "none"; $("btnNo").style.display = "none";
+  $("btnPrev").disabled = false;
+  $("btnNext").style.display = "";
+  $("btnNext").textContent = state.idx < QUEST.length - 1 ? "下一题 →" : "查看成绩 🏁";
+  $("qask").innerHTML = "结论：<b>" + (q.ans ? "是" : "不是") + "</b>无穷小";
+  $("prog").textContent = "得分 " + state.score + " / " + QUEST.length * 20;
+}
+
+/* ---------- 关卡流 ---------- */
+function load(opts) {
+  const view = opts && opts.view;
+  const q = QUEST[state.idx];
+  const had = state.answered[state.idx];
+  $("qnum").textContent = "第 " + (state.idx + 1) + "/" + QUEST.length + " 题" + (view ? "（回看）" : "");
+  $("ctx").textContent = q.ctx;
+  $("expr").innerHTML = q.expr;
+  $("fb").className = "feedback";
+  $("btnNext").style.display = "none";
+  $("over").classList.remove("show");
+  state.t = 0.6;
+
+  if (view) {
+    /* 回看模式：只查看，不能改答案；提供“返回”回到当前题 */
+    state.done = true;
+    $("btnYes").style.display = "none"; $("btnNo").style.display = "none";
+    $("btnPrev").disabled = true;
+    $("playBtn").disabled = false;
+    $("playBtn").textContent = "▶ 回放观察";
+    if (had !== undefined) {
+      const right = had === q.ans;
+      $("fb").className = "feedback show " + (right ? "right" : "wrong");
+      $("fb").innerHTML = "<h3>" + (right ? "✅ 当时的判定：是无穷小" : "❌ 当时的判定：不是无穷小") + "</h3>" +
+        "<span class='lim'>" + q.lim + "</span><br>" + q.note;
+      $("qask").innerHTML = "（回看）您之前的判定：<b>" + (right ? "正确" : "错了") + "</b>，不能修改";
+    } else {
+      $("qask").innerHTML = "（回看）此题当时<b>未作答</b>，不能再次作答";
+    }
+    $("btnNext").style.display = "";
+    $("btnNext").textContent = "→ 返回当前题";
+    $("hint").textContent = "回看模式：拖动滑块/回放动画可再次观察（" + q.ctx + "）";
+  } else if (had !== undefined) {
+    /* 本题已答过（例如从回看返回）：锁定，不能作答，只能下一题 */
+    const right = had === q.ans;
+    state.done = true;
+    $("btnYes").style.display = "none"; $("btnNo").style.display = "none";
+    $("btnPrev").disabled = false;
+    $("playBtn").disabled = false;
+    $("playBtn").textContent = "▶ 回放观察";
+    $("fb").className = "feedback show " + (right ? "right" : "wrong");
+    $("fb").innerHTML = "<h3>⛔ 本题已作答（每题仅答一次）</h3>" +
+      "<span class='lim'>" + q.lim + "</span><br>" + q.note;
+    $("qask").innerHTML = "本题判定：<b>" + (right ? "是（正确）" : "不是（正确）") + "</b>，答题结果已锁定";
+    $("btnNext").style.display = "";
+    $("btnNext").textContent = state.idx < QUEST.length - 1 ? "下一题 →" : "查看成绩 🏁";
+    $("hint").textContent = "本组已作答不能修改，点击“下一题”继续闯关（上一层" + (state.prevView ? "回看" : "返回") + "于第 " + (state.returnIdx + 1) + " 题）";
+  } else {
+    state.done = false;
+    $("btnYes").style.display = ""; $("btnNo").style.display = "";
+    $("btnPrev").disabled = state.idx === 0;
+    $("playBtn").disabled = false;
+    $("playBtn").textContent = "▶ 播放动画";
+    $("qask").innerHTML = "是不是<b>无穷小</b>？";
+    $("hint").textContent = q.mode === "dual"
+      ? "曲线两侧完整显示；播放 → 两个金点从左右两侧同时趋近 0"
+      : q.kind === "fn" ? "曲线完整显示；播放 → 点沿曲线向 " + q.ctx + " 趋近"
+      : "点列完整显示；播放 → 看 n 增大时点的走向";
+  }
+  $("curVal").textContent = "—";
+  drawC(); syncScrub();
+}
+function prev() {
+  if (state.idx === 0 || state.prevView) return;
+  stopPlay();
+  state.prevView = true;
+  state.returnIdx = state.idx;
+  state.idx--;
+  load({ view: true });
+}
+function next() {
+  if (state.prevView) {        // 回看结束 → 返回当前题
+    state.prevView = false;
+    state.idx = state.returnIdx;
+    load();
+    return;
+  }
+  if (state.idx < QUEST.length - 1) { state.idx++; load(); }
+  else over();
+}
+function over() {
+  const sc = state.score, total = QUEST.length * 20, n = QUEST.length;
+  $("over").classList.add("show");
+  $("ovScore").textContent = sc + " / " + total;
+  let txt;
+  if (sc === total) {
+    txt = "👏👏👏 五题全对、满分 100，无穷小判断轻松拿捏！完美！";
+  } else if (sc >= 80) {
+    txt = "太棒了！答对 " + (sc / 20) + " 题，离满分只差一步，把陷阱题（1+1/n）再看一眼就更强了。";
+  } else if (sc >= 60) {
+    txt = "不错哦，答对 " + (sc / 20) + " 题。再看一遍双侧趋近的动画，你会更稳。";
+  } else {
+    txt = "加油！答对 " + (sc / 20) + " 题。记住：无穷小 = 极限为 0 —— 曲线贴 0、点列落 0 才算。";
+  }
+  $("ovTxt").innerHTML = txt + "<br>共 " + n + " 题，答对 " + sc / 20 + " 题，得分 " + sc + " 分。";
+  if (sc === total) { clap(); cheer("🏆 满分通关！"); }
+  else if (sc >= 80) { jingle([659.25, 783.99], "sine", 0.26, 0.5); cheer("🌟 干得漂亮！"); }
+  else if (sc >= 60) { jingle([523.25], "sine", 0.28, 0.6); }
+  else { jingle([392, 329.63], "sine", 0.18, 0.5); }
+}
+function restart() {
+  state.idx = 0; state.score = 0; state.done = false; state.prevView = false;
+  state.answered = {}; state.returnIdx = 0;
+  $("prog").textContent = "得分 0 / " + QUEST.length * 20;
+  $("over").classList.remove("show");
+  load();
+}
+/* ---------- 滑块拖动：观察点上曲线上移动 ---------- */
+$("scrub").addEventListener("input", e => {
+  if (state.playing) stopPlay();
+  state.t = parseInt(e.target.value, 10) / 100;
+  drawC();
+});
+
+/* ---------- 按钮 ---------- */
+$("playBtn").addEventListener("click", () => {
+  if (state.playing) { state.token && (state.token.stop = true); }
+  else if (!state.done || state.prevView) play();
+});
+$("btnYes").addEventListener("click", () => answer(true));
+$("btnNo").addEventListener("click", () => answer(false));
+$("btnNext").addEventListener("click", next);
+$("btnPrev").addEventListener("click", prev);
+$("btnRestart").addEventListener("click", restart);
+
+/* ---------- 初始化 ---------- */
+load();
+</script>
+</body>
+</html>

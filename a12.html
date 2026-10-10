@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>泰勒公式可视化 · 用一个多项式去模仿一个函数</title>
+<style>
+  :root{
+    --bg:#0a1428; --card:#0d1b3a; --panel:#0f2148;
+    --title1:#0a1428; --title2:#1e3a6e;
+    --orange:#ff9f2e; --gold:#ffd23d; --red:#ff6b6b; --blue:#67b0f6; --cyan:#4fd6e0;
+    --text:#e8eff9; --muted:#8fa3c4; --line:#27407a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    background:#050d1f; color:var(--text);
+    display:flex; justify-content:center; padding:24px 12px;
+  }
+  .app{width:100%; max-width:1180px; background:var(--card); border-radius:16px;
+       border:1px solid #1c3a72; box-shadow:0 24px 60px rgba(0,0,0,.5); overflow:hidden;}
+  .titlebar{
+    background:linear-gradient(120deg,var(--title1),var(--title2));
+    color:#fff; padding:16px 26px 12px; border-bottom:1px solid #27407a;
+  }
+  .titlebar h1{font-size:21px; font-weight:700; letter-spacing:.5px;}
+  .titlebar h1 em{font-style:normal; color:var(--gold); font-weight:800;}
+  .titlebar .formula{margin-top:8px; font-size:14px; color:#e6ecfb; line-height:1.9;
+     background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16);
+     padding:8px 14px; border-radius:9px; display:inline-block;}
+  .titlebar .formula b{color:var(--orange);}
+  .titlebar p{font-size:12.5px; opacity:.88; margin-top:6px; color:#a9c2ee; line-height:1.7;}
+  .titlebar p b.o{color:#ffb463;} .titlebar p b.b{color:#7fc4ff;}
+  /* 双图区 */
+  .dual{display:flex; gap:12px; padding:12px 20px 0; flex-wrap:wrap;}
+  .plot{flex:1; min-width:330px; background:#0c1d3d; border:1px solid #27407a; border-radius:12px; padding:6px 8px 4px;}
+  .plot .pt{font-size:13px; font-weight:700; color:#d7e3ff; padding:2px 6px 4px;}
+  canvas{display:block; width:100%; border-radius:9px; background:linear-gradient(180deg,#0e2148,#081229); border:1px solid #1c3a72;}
+  .legend{display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:#a9c2ee; padding:6px 8px 2px; user-select:none;}
+  .legend i{display:inline-block; width:13px; height:13px; border-radius:3px; vertical-align:-2px; margin-right:5px;}
+  .legend .b i{background:var(--blue); border:1px solid rgba(255,255,255,.3);}
+  .legend .o i{background:var(--orange); border:none; width:18px; height:3px;}
+  .legend .z i{background:var(--gold); border-radius:50%; width:6px; height:6px; border:2px solid #fff;}
+  /* 控制 */
+  .panel{padding:12px 24px 20px; background:#0c1a36; border-top:1px solid #1c385e;}
+  .ctl-row{display:flex; align-items:center; gap:12px; padding:7px 0; flex-wrap:wrap;}
+  .ctl-label{font-size:13.5px; font-weight:700; min-width:140px; color:#d7e3ff;}
+  .ctl-label .sym{font-size:17px; color:var(--gold);}
+  .slider-wrap{flex:1; min-width:180px; display:flex; align-items:center; gap:12px;}
+  input[type=range]{flex:1; height:6px; -webkit-appearance:none; appearance:none; border-radius:3px; outline:none; cursor:pointer;}
+  input[type=range].n{background:linear-gradient(90deg,#7a5a28,var(--orange));}
+  input[type=range].x{background:linear-gradient(90deg,#27407a,#67b0f6);}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:19px; height:19px; border-radius:50%;
+    background:var(--orange); border:3px solid #fff; box-shadow:0 1px 6px rgba(0,0,0,.4); cursor:grab;}
+  input[type=range].x::-webkit-slider-thumb{background:var(--blue);}
+  .val{min-width:110px; text-align:center; font-size:14.5px; font-weight:700; padding:6px 10px;
+     border-radius:9px; background:#0a1a38; border:1px solid #2c4a84; color:var(--gold); font-variant-numeric:tabular-nums;}
+  .fns{display:flex; gap:8px; flex-wrap:wrap; padding:4px 0 2px;}
+  .fv{
+    border:1px solid #2c4a84; background:#0f2148; color:#cfe0ff; padding:6px 15px;
+    border-radius:16px; font-size:13px; cursor:pointer; transition:all .15s; font-weight:600;
+  }
+  .fv:hover{background:#1d3566; border-color:#4a74c0;}
+  .fv.cur{background:linear-gradient(120deg,#c98a1e,#ff9f2e); color:#1a1000; border-color:#ff9f2e;}
+  .status{
+    margin-top:10px; padding:12px 18px; border-radius:12px; font-size:14.5px; line-height:1.6;
+    font-weight:600; background:#0f2148; border:1px solid var(--line); min-height:52px; color:#cfe0ff;
+  }
+  .status .ico{font-size:19px; margin-right:4px;}
+  .status.demo{background:#122852; border-color:#33589e;}
+  .status .sub{display:block; font-size:12px; font-weight:400; opacity:.85; margin-top:3px;}
+  .actions{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;}
+  .btn{border:none; padding:11px 20px; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer;
+     background:linear-gradient(120deg,#2a5191,#1e3a6e); color:#fff; transition:all .18s; box-shadow:0 4px 14px rgba(0,0,0,.35);}
+  .btn:hover{transform:translateY(-1px); filter:brightness(1.1);}
+  .btn.stop{background:#8c2737;}
+  .btn.secondary{background:#152a55; color:#cfe0ff; border:1px solid #33589e; box-shadow:none;}
+  .btn.secondary:hover{border-color:#4a74c0;}
+  .notice{font-size:12px; color:#7f93b8; margin-top:10px; line-height:1.7; background:#0e1f42;
+     border-left:3px solid #33589e; padding:8px 12px; border-radius:0 8px 8px 0;}
+  @media (max-width:760px){ .dual{flex-direction:column;} }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="titlebar">
+    <h1>泰勒公式可视化 <em>·</em> 用一个多项式去模仿一个函数</h1>
+    <div class="formula">P<sub>n</sub>(x) = Σ<sub>k=0..n</sub> f<sup>(k)</sup>(x₀)/k! · (x − x₀)<sup>k</sup>　↔　f(x) ≈ P<sub>n</sub>(x)</div>
+    <p>以 f(x)=sin x 在 x=0 展开：1 次 P₁=x（直线），3 次 P₃=x−x³/6（开始弯），5 次 P₅=x−x³/6+x⁵/120（更像）——<b class="o">每加一项，多项式就更“贴”曲线</b>。左侧看逼近，右侧看误差。</p>
+  </div>
+
+  <div class="dual">
+    <div class="plot">
+      <div class="pt">① 原函数（蓝） vs 泰勒多项式（橙）</div>
+      <canvas id="cv1" width="560" height="430"></canvas>
+      <div class="legend">
+        <span class="b"><i></i>f(x) 原函数</span>
+        <span class="o"><i></i>泰勒多项式 P<sub>n</sub>(x)</span>
+        <span class="z"><i></i>展开点 (x₀, f(x₀))</span>
+      </div>
+    </div>
+    <div class="plot">
+      <div class="pt">② 误差 |f(x) − P<sub>n</sub>(x)|（对数刻度）</div>
+      <canvas id="cv2" width="560" height="430"></canvas>
+      <div class="legend">
+        <span class="o"><i></i>误差曲线</span>
+        <span>误差随 n 指数变小（对数刻度向下坠）</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ctl-row">
+      <span class="ctl-label"><span class="sym">f(x)</span> 要逼近的函数</span>
+      <div class="fns" id="fns"></div>
+    </div>
+    <div class="ctl-row">
+      <span class="ctl-label"><span class="sym">n</span> 多项式项数阶数</span>
+      <div class="slider-wrap">
+        <input type="range" id="n" class="n" min="0" max="15" step="1" value="1">
+        <span class="val" id="valN">n = 1</span>
+      </div>
+    </div>
+    <div class="ctl-row">
+      <span class="ctl-label"><span class="sym">x₀</span> 展开点</span>
+      <div class="slider-wrap">
+        <input type="range" id="x0" class="x" min="-2.0" max="2.0" step="0.05" value="0">
+        <span class="val" id="valX0">x₀ = 0.00</span>
+      </div>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <div class="actions">
+      <button class="btn" id="demoBtn">▶ 自动演示（n：0→15 逼近过程）</button>
+      <button class="btn secondary" id="resetBtn">↺ 重置</button>
+    </div>
+    <div class="notice" id="notice"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+ * 泰勒公式可视化 —— 复刻自《泰勒公式·多项式逼近》
+ * 左图：f(x) 与泰勒多项式 Pₙ 的逼近；右图：误差（对数轴）
+ * 控件：函数切换 / n(0~15) / 展开点 x₀ / 自动演示
+ * ============================================================ */
+
+const $ = id => document.getElementById(id);
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------- 函数库 ---------- */
+const FUNCS = [
+  {
+    id: "sin", name: "sin x", f: x => Math.sin(x),
+    der(k, x0) { return Math.sin(x0 + k * Math.PI / 2); },
+    xrange: [-4.5, 4.5], x0min: -3, x0max: 3,
+    term(k, x0) { return "sin(" + x0 + " + k·π/2)"; },
+    seriesName(x0) { return "sin x"; }
+  },
+  {
+    id: "cos", name: "cos x", f: x => Math.cos(x),
+    der(k, x0) { return Math.cos(x0 + k * Math.PI / 2); },
+    xrange: [-4.5, 4.5], x0min: -3, x0max: 3,
+    term(k, x0) { return "cos(" + x0 + " + k·π/2)"; },
+    seriesName(x0) { return "cos x"; }
+  },
+  {
+    id: "exp", name: "eˣ", f: x => Math.exp(x),
+    der(k, x0) { return Math.exp(x0); },
+    xrange: [-3.5, 3.5], x0min: -2.5, x0max: 2.5,
+    term(k, x0) { return "e^" + x0; },
+    seriesName(x0) { return "eˣ"; }
+  },
+  {
+    id: "geo", name: "1/(1−x)", f: x => 1 / (1 - x),
+    der(k, x0) { let s = 1; for (let i = 0; i < k; i++) s *= k - i; return s * Math.pow(1 - x0, -(k + 1)); },
+    xrange: [-2.2, 2.2], x0min: -0.9, x0max: 0.9,
+    term(k, x0) { return "1/(1−x₀)^(k+1)"; },
+    seriesName(x0) { return "Σ(x−x₀)ᵏ / (1−x₀)ᵏ⁺¹"; },
+    skip(x) { return Math.abs(x - 1) < 1e-3; }
+  }
+];
+const FUNC = () => FUNCS[state.fi];
+const F = () => FUNC().f;
+
+const state = { fi: 0, n: 1, x0: 0, demo: null };
+
+const cv1 = $("cv1"), cv2 = $("cv2");
+const x1 = cv1.getContext("2d"), x2 = cv2.getContext("2d");
+
+const P1 = { l: 46, r: 16, t: 26, b: 34 };
+const P2 = { l: 52, r: 16, t: 26, b: 34 };
+
+/* ---------- 泰勒多项式 ---------- */
+function poly(x, n, x0) {
+  const fn = FUNC();
+  let s = 0, term = 1;
+  for (let k = 0; k <= n; k++) {
+    s += fn.der(k, x0) / term * Math.pow(x - x0, k);
+    term *= (k + 1);
+  }
+  return s;
+}
+
+/* ---------- 左图：逼近 ---------- */
+function drawApprox() {
+  const fn = FUNC(), f = fn.f, q = state.x0, nmax = state.n;
+  const w = cv1.width, h = cv1.height;
+  x1.clearRect(0, 0, w, h);
+  const g = x1.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, "#0e2148"); g.addColorStop(1, "#081229");
+  x1.fillStyle = g; x1.fillRect(0, 0, w, h);
+
+  const [xa, xb] = fn.xrange;
+  const pw = w - P1.l - P1.r, ph = h - P1.t - P1.b;
+  // 采样计算 y 范围（取 2%~98% 分位，防发散函数把图撑爆）
+  const Ns = 320;
+  const vals = [];
+  for (let i = 0; i <= Ns; i++) {
+    const x = xa + (xb - xa) * i / Ns;
+    if (fn.skip && fn.skip(x)) continue;
+    const v1 = f(x), v2 = poly(x, nmax, q);
+    if (isFinite(v1) && Math.abs(v1) < 1e6) vals.push(v1);
+    if (isFinite(v2) && Math.abs(v2) < 1e6) vals.push(v2);
+  }
+  vals.sort((a, b) => a - b);
+  let ylo = vals.length ? vals[Math.floor(vals.length * 0.02)] : -2;
+  let yhi = vals.length ? vals[Math.ceil(vals.length * 0.98)] : 2;
+  if (yhi - ylo < 0.6) { const c = (yhi + ylo) / 2; ylo = c - 0.3; yhi = c + 0.3; }
+  const x2p = x => P1.l + (x - xa) / (xb - xa) * pw;
+  const y2p = y => P1.t + (yhi - y) / (yhi - ylo) * ph;
+
+  // 网格
+  x1.strokeStyle = "rgba(90,140,220,.10)";
+  x1.lineWidth = 1;
+  for (let i = 0; i <= 5; i++) {
+    const yy = P1.t + ph * i / 5;
+    x1.beginPath(); x1.moveTo(P1.l, yy); x1.lineTo(P1.l + pw, yy); x1.stroke();
+  }
+  x1.fillStyle = "#7f93b8"; x1.font = "11px 'Segoe UI',sans-serif"; x1.textAlign = "right"; x1.textBaseline = "middle";
+  for (const yy of [yhi, (yhi + ylo) / 2, ylo]) x1.fillText(+yy.toFixed(2), P1.l - 6, y2p(yy));
+
+  // x 轴与 x₀ 竖虚线
+  x1.strokeStyle = "rgba(255,255,255,.25)";
+  x1.lineWidth = 1.2;
+  if (ylo < 0 && yhi > 0) { x1.beginPath(); x1.moveTo(P1.l, y2p(0)); x1.lineTo(P1.l + pw, y2p(0)); x1.stroke(); }
+  x1.strokeStyle = "rgba(255,210,61,.5)";
+  x1.setLineDash([5, 4]);
+  const xq = x2p(q);
+  if (xq > P1.l && xq < P1.l + pw) { x1.beginPath(); x1.moveTo(xq, P1.t); x1.lineTo(xq, P1.t + ph); x1.stroke(); }
+  x1.setLineDash([]);
+
+  // 原函数（蓝色）
+  x1.beginPath();
+  let pen = false;
+  for (let i = 0; i <= Ns; i++) {
+    const x = xa + (xb - xa) * i / Ns;
+    if (fn.skip && fn.skip(x)) { pen = false; continue; }
+    const y = f(x), py = y2p(y);
+    if (isFinite(y) && py > P1.t - 40 && py < P1.t + ph + 40) { if (pen) x1.lineTo(x2p(x), py); else { x1.moveTo(x2p(x), py); pen = true; } }
+    else pen = false;
+  }
+  x1.strokeStyle = "rgba(103,176,246,.95)";
+  x1.lineWidth = 2;
+  x1.stroke();
+
+  // 泰勒多项式（橙色）
+  x1.beginPath();
+  pen = false;
+  for (let i = 0; i <= Ns; i++) {
+    const x = xa + (xb - xa) * i / Ns;
+    const y = poly(x, nmax, q), py = y2p(y);
+    if (isFinite(y) && py > P1.t - 40 && py < P1.t + ph + 40) { if (pen) x1.lineTo(x2p(x), py); else { x1.moveTo(x2p(x), py); pen = true; } }
+    else pen = false;
+  }
+  x1.strokeStyle = "#ff9f2e";
+  x1.lineWidth = 3;
+  x1.lineJoin = "round";
+  x1.stroke();
+
+  // 展开点
+  const fq = f(q);
+  if (isFinite(fq)) {
+    x1.fillStyle = "#ffd23d";
+    x1.beginPath(); x1.arc(x2p(q), y2p(fq), 5, 0, 2 * Math.PI); x1.fill();
+    x1.strokeStyle = "#fff"; x1.lineWidth = 1.6; x1.stroke();
+    x1.fillStyle = "#ffd23d"; x1.font = "bold 12px 'PingFang SC'"; x1.textAlign = "left"; x1.textBaseline = "bottom";
+    x1.fillText("(x₀=" + (+q).toFixed(2) + ", f=" + (+fq).toFixed(2) + ")", x2p(q) + 7, y2p(fq) - 5);
+  }
+
+  // x 轴刻度
+  x1.fillStyle = "#8fa3c4"; x1.font = "12px 'Segoe UI',sans-serif"; x1.textAlign = "center"; x1.textBaseline = "top";
+  for (let x = Math.ceil(xa / 2) * 2; x <= xb; x += 2) x1.fillText(String(x), x2p(x), P1.t + ph + 8);
+
+  // 标题
+  x1.fillStyle = "#d7e3ff"; x1.font = "bold 14px 'PingFang SC',sans-serif"; x1.textAlign = "left";
+  x1.fillText("f(x) = " + fn.name + "  vs  P" + nmax + "(x)", P1.l, 16);
+}
+
+/* ---------- 右图：误差（对数 y 轴） ---------- */
+function drawErr() {
+  const fn = FUNC(), f = fn.f, q = state.x0, nmax = state.n;
+  const w = cv2.width, h = cv2.height;
+  x2.clearRect(0, 0, w, h);
+  const g = x2.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, "#0e2148"); g.addColorStop(1, "#081229");
+  x2.fillStyle = g; x2.fillRect(0, 0, w, h);
+
+  const [xa, xb] = fn.xrange;
+  const pw = w - P2.l - P2.r, ph = h - P2.t - P2.b;
+  const yLo = -6, yHi = 1;            // log10 刻度：1e-6 ~ 10
+  const x2p = x => P2.l + (x - xa) / (xb - xa) * pw;
+  const y2p = y => P2.t + (yHi - Math.log10(clamp(y, 1e-6, 1e6))) / (yHi - yLo) * ph;
+
+  // 网格
+  x2.strokeStyle = "rgba(90,140,220,.10)";
+  x2.lineWidth = 1;
+  for (let i = 0; i <= 7; i++) {
+    const yy = P2.t + ph * i / 7;
+    x2.beginPath(); x2.moveTo(P2.l, yy); x2.lineTo(P2.l + pw, yy); x2.stroke();
+  }
+  x2.fillStyle = "#7f93b8"; x2.font = "10.5px 'Segoe UI',sans-serif"; x2.textAlign = "right"; x2.textBaseline = "middle";
+  for (const v of [1, -1, -2, -4, -6]) x2.fillText("10^" + v, P2.l - 6, y2p(Math.pow(10, v)));
+
+  // 误差曲线
+  const Ns = 420;
+  let maxErr = 0, maxX = q;
+  x2.beginPath();
+  let pen = false;
+  for (let i = 0; i <= Ns; i++) {
+    const x = xa + (xb - xa) * i / Ns;
+    if (fn.skip && fn.skip(x)) { pen = false; continue; }
+    const e = Math.abs(f(x) - poly(x, nmax, q));
+    if (e > maxErr && x !== q && x > q) { maxErr = e; maxX = x; }
+    const py = y2p(e);
+    if (py > P2.t - 20 && py < P2.t + ph + 20) { if (pen) x2.lineTo(x2p(x), py); else { x2.moveTo(x2p(x), py); pen = true; } }
+    else pen = false;
+  }
+  x2.strokeStyle = "#ff9f2e";
+  x2.lineWidth = 2.2;
+  x2.stroke();
+
+  // x₀ 位置竖线
+  x2.strokeStyle = "rgba(255,210,61,.5)";
+  x2.setLineDash([5, 4]);
+  const xq = x2p(q);
+  x2.beginPath(); x2.moveTo(xq, P2.t); x2.lineTo(xq, P2.t + ph); x2.stroke();
+  x2.setLineDash([]);
+
+  x2.fillStyle = "#8fa3c4"; x2.font = "12px 'Segoe UI',sans-serif"; x2.textAlign = "center"; x2.textBaseline = "top";
+  for (let x = Math.ceil(xa / 2) * 2; x <= xb; x += 2) x2.fillText(String(x), x2p(x), P2.t + ph + 8);
+
+  x2.fillStyle = "#d7e3ff"; x2.font = "bold 14px 'PingFang SC',sans-serif"; x2.textAlign = "left";
+  x2.fillText("误差 |f−P" + nmax + "|（对数轴）", P2.l, 16);
+  x2.fillStyle = "#ffb463"; x2.font = "bold 13px 'PingFang SC'";
+  x2.fillText("最大≈" + (maxErr < 1e-5 ? maxErr.toExponential(1) : maxErr.toFixed(4)), P2.l, 36);
+}
+
+function draw() { drawApprox(); drawErr(); }
+
+/* ---------- 状态栏与函数按钮 ---------- */
+function renderStatus() {
+  const fn = FUNC();
+  const q = state.x0, nmax = state.n;
+  const st = $("status");
+  // 计算展开点邻域内（|x−x₀|≤2）的最大误差
+  let maxErr = 0;
+  const lo = Math.max(fn.xrange[0], q - 2), hi = Math.min(fn.xrange[1], q + 2);
+  for (let i = 0; i <= 300; i++) {
+    const x = lo + (hi - lo) * i / 300;
+    if (fn.skip && fn.skip(x)) continue;
+    const e = Math.abs(fn.f(x) - poly(x, nmax, q));
+    if (isFinite(e)) maxErr = Math.max(maxErr, e);
+  }
+  st.className = "status";
+  st.innerHTML = '<span class="ico">🟠</span>f(x)=' + fn.name + ' 在 x₀=' + (+q).toFixed(2) + ' 展开到 n=' + nmax + '：展开点邻域最大误差 ≈ <b>' + (maxErr < 1e-4 ? maxErr.toExponential(2) : maxErr.toFixed(4)) + '</b>'
+    + '<span class="sub">每加一项（多一阶），邻域误差就掉一个数量级；n 越大，橙色多项式越“贴”蓝色曲线 —— 把复杂函数变成好算的多项式。</span>';
+}
+
+function buildFns() {
+  const box = $("fns");
+  box.innerHTML = "";
+  FUNCS.forEach((fn, i) => {
+    const b = document.createElement("div");
+    b.className = "fv" + (i === state.fi ? " cur" : "");
+    b.textContent = fn.name;
+    b.onclick = () => {
+      if (state.demo) stopDemo();
+      state.fi = i;
+      // x₀ 滑块范围随函数调整
+      syncInputs(); renderStatus(); draw(); buildFns();
+    };
+    box.appendChild(b);
+  });
+}
+
+function syncInputs() {
+  const fn = FUNC();
+  $("x0").min = fn.x0min; $("x0").max = fn.x0max;
+  state.x0 = clamp(state.x0, fn.x0min, fn.x0max);
+  $("n").value = state.n;
+  $("x0").value = state.x0;
+  $("valN").textContent = "n = " + state.n;
+  $("valX0").textContent = "x₀ = " + state.x0.toFixed(2);
+}
+
+/* ---------- 事件 ---------- */
+$("n").addEventListener("input", e => {
+  if (state.demo) stopDemo();
+  state.n = parseInt(e.target.value, 10);
+  syncInputs(); renderStatus(); draw();
+});
+$("x0").addEventListener("input", e => {
+  if (state.demo) stopDemo();
+  state.x0 = parseFloat(e.target.value);
+  syncInputs(); renderStatus(); draw();
+});
+$("resetBtn").onclick = () => {
+  if (state.demo) stopDemo();
+  state.fi = 0; state.n = 1; state.x0 = 0;
+  syncInputs(); renderStatus(); draw(); buildFns();
+};
+
+/* ---------- 自动演示 ---------- */
+function stopDemo() {
+  if (state.demo) state.demo.stop = true;
+}
+async function comment(text, ms) {
+  const st = $("status");
+  st.className = "status demo";
+  st.innerHTML = '<span class="ico">🎬</span>' + text;
+  await sleep(ms);
+}
+async function runDemo() {
+  const token = { stop: false };
+  state.demo = token;
+  const b = $("demoBtn");
+  b.textContent = "■ 停止演示";
+  b.classList.add("stop");
+  try {
+    state.fi = 0; state.x0 = 0; syncInputs();
+    state.n = 0;
+    syncInputs(); renderStatus(); draw(); buildFns();
+    await comment("n=0：多项式只是一条水平的“常数” f(0)=0，和 sin x 只在原点重合。", 2400);
+    if (token.stop) return;
+    for (let n = 1; n <= 15; n++) {
+      if (token.stop) return;
+      state.n = n;
+      syncInputs(); renderStatus(); draw();
+      if (n === 1 || n === 3 || n === 5 || n === 7 || n === 15) {
+        await comment(
+          "n=" + n + "：" + (n === 1 ? "P₁=x 一条直线，只在原点附近勉强像。" :
+            n === 3 ? "P₃=x−x³/6 开始弯曲，贴合范围变宽。" :
+            n === 5 ? "P₅=x−x³/6+x⁵/120 更像，误差掉好几个数量级。" :
+            n === 7 ? "几乎看不出来区别 —— 多项式把 sin x 完全“吃”下去了。" : "n=15：右侧误差曲线几乎贴到 10⁻⁶，逼近完成。"), 2300);
+      } else {
+        await sleep(180);
+      }
+    }
+    if (token.stop) return;
+    comment("泰勒公式：任何一个光滑函数，在局部都可以用一个多项式来近似。你加的项越多，近似就越精确 —— “把复杂变成简单”。", 3600);
+  } finally {
+    state.demo = null;
+    b.textContent = "▶ 自动演示（n：0→15 逼近过程）";
+    b.classList.remove("stop");
+  }
+}
+$("demoBtn").onclick = () => {
+  if (state.demo) { stopDemo(); return; }
+  runDemo();
+};
+/* ---------- 初始化 ---------- */
+$("notice").innerHTML = "切换函数（sin x / cos x / eˣ / 1/(1−x)）、拖 n 滑块加阶数、拖 x₀ 换展开点。左图橙线=泰勒多项式、右图对数轴显示误差指数级塌缩。1/(1−x) 是几何级数：x₀ 离 1 越远，逼近范围越大。";
+syncInputs();
+renderStatus();
+draw();
+buildFns();
+</script>
+</body>
+</html>

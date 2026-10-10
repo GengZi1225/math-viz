@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>基本初等函数 · 交互式图鉴</title>
+<style>
+  :root{
+    --bg:#0a1428; --card:#0d1b3a; --panel:#0f2148;
+    --title1:#0a1428; --title2:#1e3a6e;
+    --orange:#ff9f2e; --gold:#ffd23d; --red:#ff6b6b; --blue:#67b0f6; --cyan:#4fd6e0; --green:#5ee8a6;
+    --text:#e8eff9; --muted:#8fa3c4; --line:#27407a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    background:#050d1f; color:var(--text);
+    display:flex; justify-content:center; align-items:center; min-height:100vh; padding:10px;
+  }
+  /* 16:9 主区域 */
+  .app{
+    width:min(100%,1280px); aspect-ratio:16/9; max-height:100vh;
+    background:var(--card); border-radius:16px; border:1px solid #1c3a72;
+    box-shadow:0 24px 60px rgba(0,0,0,.5); overflow:hidden;
+    display:flex; flex-direction:column;
+  }
+  .titlebar{
+    background:linear-gradient(120deg,var(--title1),var(--title2));
+    color:#fff; padding:8px 20px 7px; border-bottom:1px solid #27407a; flex:none;
+  }
+  .titlebar h1{font-size:17px; font-weight:700; display:inline-block;}
+  .titlebar h1 em{font-style:normal; color:var(--gold);}
+  .titlebar p{font-size:11.5px; opacity:.88; color:#a9c2ee; margin-top:2px; line-height:1.5;}
+  .titlebar p b{color:#ffc36b;}
+  /* 分类按钮 */
+  .cats{display:flex; gap:6px; flex-wrap:wrap; padding:8px 20px 3px; flex:none;}
+  .cat{
+    border:1px solid #2c4a84; background:#0f2148; color:#cfe0ff; padding:5px 13px;
+    border-radius:15px; font-size:12.5px; cursor:pointer; transition:all .15s; font-weight:600;
+  }
+  .cat:hover{background:#1d3566; border-color:#4a74c0;}
+  .cat.cur{background:linear-gradient(120deg,#c98a1e,#ff9f2e); color:#1a1000; border-color:#ff9f2e;}
+  .cat small{font-size:10px; font-weight:400; opacity:.85;}
+  /* 主体 */
+  .body{flex:1; display:flex; gap:12px; padding:6px 20px 4px; min-height:0;}
+  .side{width:225px; min-width:190px; display:flex; flex-direction:column; gap:6px; min-height:0;}
+  .list{flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:4px; padding-right:2px; min-height:0;}
+  .list::-webkit-scrollbar{width:6px;} .list::-webkit-scrollbar-thumb{background:#2c4a84; border-radius:3px;}
+  .fn{
+    display:flex; align-items:center; gap:7px; padding:6px 10px; border-radius:8px;
+    background:#101f42; border:1px solid #24406f; cursor:pointer; transition:all .12s;
+    font-size:12.5px; color:#cfe0ff; font-family:'Cambria Math','Times New Roman',serif; flex:none;
+  }
+  .fn:hover{background:#1a2f5e; border-color:#3a5a96;}
+  .fn.cur{background:#26355f; border-color:var(--orange); box-shadow:0 0 0 1px var(--orange) inset;}
+  .fn.sel{border-color:#4a74c0; box-shadow:0 0 0 1px #4a74c0 inset;}
+  .fn .dot{width:7px; height:7px; border-radius:50%; background:#33589e; flex:none;}
+  .fn.cur .dot{background:var(--orange);}
+  .fn.sel .dot{background:#67b0f6;}
+  .fn .chk{margin-left:auto; font-size:12px; color:#4a74c0; padding-left:6px;}
+  .fn.cur .chk{color:var(--orange);}
+  /* 画布区 */
+  .view{flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; min-height:0;}
+  .canvas-box{flex:1; min-height:0; display:flex; align-items:stretch;}
+  canvas#cv{width:100%; height:100%; aspect-ratio:16/9; border-radius:10px;
+     background:radial-gradient(circle at 50% 42%, #12285a, #060f22 78%);
+     border:1px solid #1c3a72; cursor:crosshair;}
+  .legend{display:flex; gap:14px; font-size:11px; color:#a9c2ee; padding:1px 4px 0; user-select:none; flex:none;}
+  .legend i{display:inline-block; width:12px; border-radius:2px; vertical-align:-1px; margin-right:5px;}
+  .legend .c i{height:3px; background:var(--orange); width:18px;}
+  .legend .a i{border-top:2px dashed var(--red); height:0; width:18px;}
+  .legend span{white-space:nowrap;}
+  /* 属性卡 */
+  .card{flex:none; background:#0c1d3d; border:1px solid rgba(255,159,46,.35);
+     border-radius:10px; padding:7px 14px; display:flex; align-items:center; gap:16px;}
+  .card .formula{font-size:18px; font-weight:800; color:var(--gold); white-space:nowrap;
+     font-family:'Cambria Math','Times New Roman',serif; flex:none;}
+  .card .props{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,3fr)); gap:2px 18px; flex:1;}
+  .prop{font-size:11.5px; color:#cfe0ff; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .prop b{color:#8fb4f5; font-weight:600;}
+  /* 控制 */
+  .panel{flex:none; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+     padding:6px 20px 10px; background:transparent; border-top:1px solid #17294d;}
+  .actions{display:flex; gap:8px;}
+  .btn{border:none; padding:7px 16px; border-radius:8px; font-size:12.5px; font-weight:700; cursor:pointer;
+     background:linear-gradient(120deg,#2a5191,#1e3a6e); color:#fff; transition:all .18s;}
+  .btn:hover{filter:brightness(1.12);}
+  .btn.stop{background:#8c2737;}
+  .btn.secondary{background:#152a55; color:#cfe0ff; border:1px solid #33589e;}
+  .notice{font-size:11px; color:#7f93b8; line-height:1.6; flex:1; min-width:200px;}
+  /* 平板/折叠屏：放宽到 ≤900px 即可切竖排 */
+  @media (max-width:900px){
+    body{align-items:flex-start; padding:6px;}
+    .app{aspect-ratio:auto; width:100%; max-width:900px; max-height:none; border-radius:12px;}
+    .titlebar{padding:7px 14px 6px;}
+    .titlebar h1{font-size:15px;}
+    .titlebar p{font-size:11px; line-height:1.45;}
+    .cats{padding:6px 12px 2px; gap:5px; overflow-x:auto; flex-wrap:nowrap; -webkit-overflow-scrolling:touch;}
+    .cats::-webkit-scrollbar{display:none;}
+    .cat{flex:none; font-size:11.5px; padding:4px 10px;}
+    .body{flex-direction:column; gap:6px; padding:4px 12px;}
+    .side{width:100%; min-width:0; max-height:130px;}
+    .list{flex-direction:row; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; gap:6px; padding:2px 0 4px;}
+    .list::-webkit-scrollbar{height:4px;}
+    .fn{flex:none; min-width:82px; font-size:12px; padding:5px 9px;}
+    .view{width:100%; min-width:0;}
+    .canvas-box{min-height:300px;}
+    canvas#cv{aspect-ratio:auto;}
+    .card{flex-direction:column; align-items:flex-start; gap:5px; padding:6px 11px;}
+    .card .formula{font-size:15px;}
+    .card .props{grid-template-columns:repeat(2,minmax(0,1fr)); gap:1px 14px; width:100%;}
+    .prop{font-size:11px;}
+    .panel{flex-direction:column; align-items:stretch; padding:6px 12px 8px; gap:7px;}
+    .actions{justify-content:center;}
+    .actions .btn{flex:1; padding:6px 10px; font-size:12px;}
+    .notice{font-size:10.5px; min-width:0; text-align:center;}
+  }
+  /* 手机竖屏：进一步压缩高度需求 */
+  @media (max-width:520px){
+    .titlebar h1{font-size:14px;}
+    .side{max-height:110px;}
+    .fn{min-width:74px; font-size:11.5px;}
+    .canvas-box{min-height:240px;}
+    .card .props{grid-template-columns:1fr;}
+    .legend{font-size:10.5px; gap:8px; flex-wrap:wrap;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="titlebar">
+    <h1>基本初等函数 <em>·</em> 交互式图鉴</h1>
+    <p>常数、幂、指数、对数、三角、反三角六类共 <b>24 个</b>典型函数。左侧<b>点击函数可多选</b>，多个函数同屏对照；<b>鼠标移到图上</b>显示各曲线函数值，<b>▶ 绘制动画</b>看曲线长出来，坐标系自适应完整显示。</p>
+  </div>
+
+  <div class="cats" id="cats"></div>
+
+  <div class="body">
+    <div class="side">
+      <div class="list" id="fnList"></div>
+    </div>
+    <div class="view">
+      <div class="canvas-box"><canvas id="cv" width="960" height="540"></canvas></div>
+      <div class="legend" id="legend"></div>
+      <div class="card">
+        <div class="formula" id="formula">y = x²</div>
+        <div class="props" id="props"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="actions">
+      <button class="btn" id="playBtn">▶ 绘制动画</button>
+      <button class="btn secondary" id="clearBtn">✕ 清除全部选择</button>
+      <button class="btn secondary" id="nextBtn">下一个函数 →</button>
+    </div>
+    <div class="notice" id="notice"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+ * 基本初等函数 · 交互式图鉴（多选同屏版）
+ * 常数(2) + 幂(6) + 指数(3) + 对数(3) + 三角(6) + 反三角(4) = 24
+ * 支持同时选中多个函数，坐标系自适应完整显示
+ * ============================================================ */
+
+const $ = id => document.getElementById(id);
+
+/* ---------- 函数定义 ---------- */
+const CATS = ["常数函数", "幂函数", "指数函数", "对数函数", "三角函数", "反三角函数"];
+const FN = [
+  /* ---- 常数函数 ---- */
+  { cat: "常数函数", name: "y = 3", f: () => 3, xr: [-3.2, 3.2], yr: [-1, 6],
+    dom: "x ∈ ℝ", rng: "y = {3}", par: "偶函数（关于 y 轴对称）", mono: "不增不减",
+    asy: [], note: "水平直线，与 x 轴平行。" },
+  { cat: "常数函数", name: "y = −2", f: () => -2, xr: [-3.2, 3.2], yr: [-5, 4],
+    dom: "x ∈ ℝ", rng: "y = {−2}", par: "偶函数", mono: "不增不减",
+    asy: [], note: "常值水平线，位于 x 轴下方。" },
+  /* ---- 幂函数 ---- */
+  { cat: "幂函数", name: "y = x²", f: x => x * x, xr: [-3.2, 3.2], yr: [-1, 9],
+    dom: "x ∈ ℝ", rng: "y ∈ [0, +∞)", par: "偶函数", mono: "(−∞,0] 减，[0,+∞) 增",
+    asy: [], note: "抛物线，开口向上，过 (0,0)、(±1,1)。" },
+  { cat: "幂函数", name: "y = x³", f: x => x * x * x, xr: [-3.2, 3.2], yr: [-28, 28],
+    dom: "x ∈ ℝ", rng: "y ∈ ℝ", par: "奇函数", mono: "ℝ 上单调递增",
+    asy: [], note: "三次曲线，过原点，增速比 x² 快。" },
+  { cat: "幂函数", name: "y = x^½ = √x", f: x => Math.sqrt(x), xr: [0, 4.4], yr: [-0.3, 2.3],
+    dom: "x ∈ [0, +∞)", rng: "y ∈ [0, +∞)", par: "非奇非偶", mono: "[0,+∞) 单调递增",
+    asy: [], note: "定义域从 0 起：图像只在 x ≥ 0 的半侧，增长越来越慢。" },
+  { cat: "幂函数", name: "y = x^(1/3)", f: x => Math.cbrt(x), xr: [-4.2, 4.2], yr: [-2.5, 2.5],
+    dom: "x ∈ ℝ", rng: "y ∈ ℝ", par: "奇函数", mono: "ℝ 上单调递增",
+    asy: [], note: "三次根：负半轴也有定义，过 (0,0)、(±1,±1)。" },
+  { cat: "幂函数", name: "y = x⁻¹ = 1/x", f: x => 1 / x, xr: [-3.2, 3.2], yr: [-8, 8],
+    dom: "x ≠ 0", rng: "y ≠ 0", par: "奇函数", mono: "(−∞,0) 与 (0,+∞) 均递减",
+    asy: ["x=0 竖渐近线", "y=0 水平渐近线"], note: "反比例双曲线两支，正负区对称。" },
+  { cat: "幂函数", name: "y = x⁻² = 1/x²", f: x => 1 / (x * x), xr: [-3.2, 3.2], yr: [-1, 9],
+    dom: "x ≠ 0", rng: "y ∈ (0, +∞)", par: "偶函数", mono: "(−∞,0) 增，(0,+∞) 减",
+    asy: ["x=0 竖渐近线", "y=0 水平渐近线"], note: "向上两支，远离原点时贴向 x 轴。" },
+  /* ---- 指数函数 ---- */
+  { cat: "指数函数", name: "y = 2ˣ", f: x => Math.pow(2, x), xr: [-3.4, 3.4], yr: [-1, 10],
+    dom: "x ∈ ℝ", rng: "y ∈ (0, +∞)", par: "非奇非偶", mono: "ℝ 上单调递增",
+    asy: ["y=0 水平渐近线"], note: "过 (0,1)。a>1 增，向 −∞ 处贴向 x 轴。" },
+  { cat: "指数函数", name: "y = eˣ", f: x => Math.exp(x), xr: [-3.4, 3.4], yr: [-1, 10],
+    dom: "x ∈ ℝ", rng: "y ∈ (0, +∞)", par: "非奇非偶", mono: "ℝ 上单调递增",
+    asy: ["y=0 水平渐近线"], note: "自然指数，增速超任何幂函数，过 (0,1)。" },
+  { cat: "指数函数", name: "y = (1/2)ˣ", f: x => Math.pow(0.5, x), xr: [-3.4, 3.4], yr: [-1, 10],
+    dom: "x ∈ ℝ", rng: "y ∈ (0, +∞)", par: "非奇非偶", mono: "ℝ 上单调递减",
+    asy: ["y=0 水平渐近线"], note: "0<a<1 的指数：递减，与 2ˣ 关于 y 轴镜像。" },
+  /* ---- 对数函数 ---- */
+  { cat: "对数函数", name: "y = ln x", f: x => Math.log(x), xr: [-0.8, 4.6], yr: [-3.4, 2],
+    dom: "x ∈ (0, +∞)", rng: "y ∈ ℝ", par: "非奇非偶", mono: "(0,+∞) 单调递增",
+    asy: ["x=0 竖渐近线"], note: "过 (1,0)。eˣ 的反函数，增长越来越慢。" },
+  { cat: "对数函数", name: "y = log₂x", f: x => Math.log2(x), xr: [-0.8, 4.6], yr: [-3.4, 2.6],
+    dom: "x ∈ (0, +∞)", rng: "y ∈ ℝ", par: "非奇非偶", mono: "(0,+∞) 单调递增",
+    asy: ["x=0 竖渐近线"], note: "2ˣ 的反函数，过 (1,0)、(2,1)。" },
+  { cat: "对数函数", name: "y = log₁∕₂x", f: x => Math.log(x) / Math.log(0.5), xr: [-0.8, 4.6], yr: [-3.4, 2.6],
+    dom: "x ∈ (0, +∞)", rng: "y ∈ ℝ", par: "非奇非偶", mono: "(0,+∞) 单调递减",
+    asy: ["x=0 竖渐近线"], note: "0<a<1 的对数：递减，(1/2)ˣ 的反函数。" },
+  /* ---- 三角函数 ---- */
+  { cat: "三角函数", name: "y = sin x", f: x => Math.sin(x), xr: [-3.3, 3.3], yr: [-1.6, 1.6],
+    dom: "x ∈ ℝ", rng: "y ∈ [−1, 1]", par: "奇函数", mono: "周期 2π，有界振荡",
+    asy: [], note: "过原点，最大值 1、最小值 −1，周期 2π。" },
+  { cat: "三角函数", name: "y = cos x", f: x => Math.cos(x), xr: [-3.3, 3.3], yr: [-1.6, 1.6],
+    dom: "x ∈ ℝ", rng: "y ∈ [−1, 1]", par: "偶函数", mono: "周期 2π，有界振荡",
+    asy: [], note: "过 (0,1)，与 sin 相差 π/2 相位。" },
+  { cat: "三角函数", name: "y = tan x", f: x => Math.tan(x), xr: [-7.8, 7.8], yr: [-7, 7],
+    dom: "x ≠ π/2 + kπ", rng: "y ∈ ℝ", par: "奇函数", mono: "每个 (π/2+kπ) 区间递增",
+    asy: ["x = π/2 + kπ 竖渐近线"], note: "周期 π，约画 5 个周期，在渐近线之间攀升/下坠。" },
+  { cat: "三角函数", name: "y = cot x", f: x => 1 / Math.tan(x), xr: [-7.8, 7.8], yr: [-7, 7],
+    dom: "x ≠ kπ", rng: "y ∈ ℝ", par: "奇函数", mono: "每个 (kπ,(k+1)π) 区间递减",
+    asy: ["x = kπ 竖渐近线"], note: "tan 的倒数，约画 5 个周期，渐近线在整倍 π 处。" },
+  { cat: "三角函数", name: "y = sec x", f: x => 1 / Math.cos(x), xr: [-7.8, 7.8], yr: [-7, 7],
+    dom: "x ≠ π/2 + kπ", rng: "y ∈ (−∞,−1] ∪ [1,+∞)", par: "偶函数", mono: "周期 2π，约画 2.5 个周期",
+    asy: ["x = π/2 + kπ 竖渐近线"], note: "1/cos x：在 cos 零点处有竖直渐近线。" },
+  { cat: "三角函数", name: "y = csc x", f: x => 1 / Math.sin(x), xr: [-7.8, 7.8], yr: [-7, 7],
+    dom: "x ≠ kπ", rng: "y ∈ (−∞,−1] ∪ [1,+∞)", par: "奇函数", mono: "周期 2π，约画 2.5 个周期",
+    asy: ["x = kπ 竖渐近线"], note: "1/sin x：在 sin 零点处有竖直渐近线。" },
+  /* ---- 反三角函数 ---- */
+  { cat: "反三角函数", name: "y = arcsin x", f: x => Math.asin(x), xr: [-1.6, 1.6], yr: [-2, 2.2],
+    dom: "x ∈ [−1, 1]", rng: "y ∈ [−π/2, π/2]", par: "奇函数", mono: "[−1,1] 单调递增",
+    asy: [], note: "sin x 在 [−π/2,π/2] 的反函数，过原点。" },
+  { cat: "反三角函数", name: "y = arccos x", f: x => Math.acos(x), xr: [-1.6, 1.6], yr: [-0.4, 3.6],
+    dom: "x ∈ [−1, 1]", rng: "y ∈ [0, π]", par: "非奇非偶", mono: "[−1,1] 单调递减",
+    asy: [], note: "cos x 在 [0,π] 的反函数。" },
+  { cat: "反三角函数", name: "y = arctan x", f: x => Math.atan(x), xr: [-3.4, 3.4], yr: [-2.2, 2.2],
+    dom: "x ∈ ℝ", rng: "y ∈ (−π/2, π/2)", par: "奇函数", mono: "ℝ 上单调递增",
+    asy: ["y = ±π/2 水平渐近线"], note: "tan x 的反函数，两侧水平渐近线 ±π/2。" },
+  { cat: "反三角函数", name: "y = arccot x", f: x => Math.PI / 2 - Math.atan(x), xr: [-3.4, 3.4], yr: [-0.4, 3.6],
+    dom: "x ∈ ℝ", rng: "y ∈ (0, π)", par: "非奇非偶", mono: "ℝ 上单调递减",
+    asy: ["y=0 与 y=π 水平渐近线"], note: "cot x 的反函数：水平渐近线 y=0 与 y=π。" }
+];
+
+/* ---------- 曲线配色（按选中顺序分配） ---------- */
+const COLORS = ["#ff9f2e", "#67b0f6", "#5ee8a6", "#ff6b6b", "#ffd23d", "#c084fc", "#4fd6e0", "#fb7c9c", "#a3e635", "#f8a5c2"];
+const colorOf = (selIdx) => COLORS[selIdx % COLORS.length];
+
+/* ---------- 渐近线 ---------- */
+function asymptotes(fn) {
+  const res = [];
+  const n = fn.name;
+  if (n.includes("1/x") || n.includes("ln ") || n.includes("log")) res.push({ a: "x", v: 0 });
+  if (n.includes("2ˣ") || n.includes("eˣ") || n.includes("(1/2)ˣ") || n.includes("1/x")) res.push({ a: "y", v: 0 });
+  if (fn.cat === "三角函数") {
+    if (/tan|cot|sec|csc/.test(fn.name)) res.push({ a: "x", v: 0 });
+    if (/tan|sec/.test(fn.name)) res.push({ a: "x", v: Math.PI / 2 });
+    if (/cot|csc/.test(fn.name)) res.push({ a: "x", v: 0 });
+  }
+  if (n.includes("arctan x")) { res.push({ a: "y", v: Math.PI / 2 }, { a: "y", v: -Math.PI / 2 }); }
+  if (n.includes("arccot")) { res.push({ a: "y", v: 0 }, { a: "y", v: Math.PI }); }
+  return res;
+}
+function periodK(fn) {
+  return fn.cat === "三角函数" && /tan|cot|sec|csc/.test(fn.name) ? Math.PI : 0;
+}
+
+/* ---------- 状态 ---------- */
+const state = {
+  selected: [2, 0],     // 默认选中 y=x² 与 y=3（可多选）
+  focus: 2,             // 焦点（性质卡显示这个）
+  cat: "幂函数",
+  prog: 1,
+  anim: null,
+  hover: null,
+  zoom: 1,              // 滚轮缩放倍率
+  panX: 0,              // 拖动平移（世界单位）
+  panY: 0
+};
+
+/* ---------- Canvas（16:9） ---------- */
+const cv = $("cv");
+const ctx = cv.getContext("2d");
+const W = cv.width, H = cv.height;
+const CX = W / 2, CY = H / 2;
+
+/* 三角函数周期（无周期返回 0） */
+function periodOf(fn) {
+  if (fn.cat !== "三角函数") return 0;
+  return /tan|cot/.test(fn.name) ? Math.PI : 2 * Math.PI;
+}
+
+/* ---------- 动态视图 ----------
+ * x：并集 + 留白 + 当前缩放/平移；周期函数放大时窗口至少含 1 个完整周期
+ * y：在“当前 x 窗口内”重新采样取分位 → 放大后无界函数主体仍完整可见
+ * --------------------------------------------------------------- */
+function viewRange() {
+  let xa = Infinity, xb = -Infinity;
+  for (const i of state.selected) {
+    const [a, b] = FN[i].xr;
+    xa = Math.min(xa, a); xb = Math.max(xb, b);
+  }
+  const padx = (xb - xa) * 0.06;
+  xa -= padx; xb += padx;
+  const z = state.zoom || 1;
+  const ccx = (xa + xb) / 2 + (state.panX || 0);
+  let half = (xb - xa) / (2 * z);
+  /* 周期函数：窗口宽度下限 = 一个完整周期 */
+  const pmax = Math.max(0, ...state.selected.map(i => periodOf(FN[i])));
+  if (pmax > 0) half = Math.max(half, pmax * 1.1 / 2);
+  const xvl = ccx - half, xvr = ccx + half;
+
+  /* 在当前 x 窗口内采样 y（3%~97% 分位提取主体，含 0 保底） */
+  const vals = [];
+  const N = 420;
+  for (let s = 0; s <= N; s++) {
+    const x = xvl + (xvr - xvl) * s / N;
+    for (const i of state.selected) {
+      const v = FN[i].f(x);
+      if (isFinite(v) && Math.abs(v) < 1e4) vals.push(v);
+    }
+  }
+  vals.sort((a, b) => a - b);
+  let ya, yb;
+  if (vals.length) {
+    ya = vals[Math.floor(vals.length * 0.03)];
+    yb = vals[Math.ceil(vals.length * 0.97)];
+  } else { ya = -1; yb = 1; }
+  if (yb - ya < 0.6) { const c = (ya + yb) / 2; ya = c - 0.3; yb = c + 0.3; }
+  ya = Math.min(ya, 0); yb = Math.max(yb, 0);
+  const pady = (yb - ya) * 0.1;
+  ya -= pady; yb += pady;
+  const ccy = (ya + yb) / 2 + (state.panY || 0);
+  const halfY = (yb - ya) / 2;
+  return {
+    xa: xvl, xb: xvr,
+    ya: ccy - halfY, yb: ccy + halfY
+  };
+}
+
+/* 等比例坐标映射：x、y 每单位像素相同（方网格），y 轴向上增大 */
+function buildMap(r) {
+  const M = 40;
+  const rx = Math.max(1e-9, r.xb - r.xa);
+  const ry = Math.max(1e-9, r.yb - r.ya);
+  const spp = Math.min((W - 2 * M) / rx, (H - 2 * M) / ry);
+  const cx = (r.xa + r.xb) / 2, cy = (r.ya + r.yb) / 2;
+  return {
+    spp,
+    gx: x => CX + (x - cx) * spp,
+    gy: y => CY - (y - cy) * spp,       // y 越大越靠上
+    ix: sx => cx + (sx - CX) / spp
+  };
+}
+
+/* ---------- 绘制 ---------- */
+function draw() {
+  const r = viewRange();
+  const mp = buildMap(r);
+  const gx = mp.gx, gy = mp.gy;
+  const tidx = state.selected.indexOf(state.focus);
+  ctx.clearRect(0, 0, W, H);
+  const bg = ctx.createRadialGradient(CX, CY * 0.9, 20, CX, CY, H * 0.7);
+  bg.addColorStop(0, "#122a5c"); bg.addColorStop(1, "#060f22");
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  /* 网格（x/y 共用同一步长 → 方正网格） */
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(120,170,255,.13)";
+  const gstep = niceStep(Math.max(r.xb - r.xa, r.yb - r.ya));
+  for (let xv = Math.ceil(r.xa / gstep) * gstep; xv <= r.xb; xv += gstep) {
+    const sx = gx(xv); ctx.beginPath(); ctx.moveTo(sx, 10); ctx.lineTo(sx, H - 10); ctx.stroke();
+  }
+  for (let yv = Math.ceil(r.ya / gstep) * gstep; yv <= r.yb; yv += gstep) {
+    const sy = gy(yv); ctx.beginPath(); ctx.moveTo(10, sy); ctx.lineTo(W - 10, sy); ctx.stroke();
+  }
+
+  /* 坐标轴 */
+  const s0x = gx(0), s0y = gy(0);
+  ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 1.6;
+  if (r.ya < 0 && r.yb > 0) {
+    ctx.beginPath(); ctx.moveTo(10, s0y); ctx.lineTo(W - 14, s0y); ctx.stroke();
+    arrow(10, s0y, W - 10, s0y);
+    ctx.fillStyle = "#d7e3ff"; ctx.fillText("x", W - 8, s0y - 5);
+  }
+  if (r.xa < 0 && r.xb > 0) {
+    ctx.beginPath(); ctx.moveTo(s0x, H - 12); ctx.lineTo(s0x, 12); ctx.stroke();
+    arrow(s0x, H - 12, s0x, 10);
+    ctx.fillStyle = "#d7e3ff"; ctx.fillText("y", s0x + 6, 12);
+  }
+  ctx.fillStyle = "#8fa3c4"; ctx.font = "11px 'Segoe UI'";
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  for (let xv = Math.ceil(r.xa); xv <= r.xb; xv++) if (Math.abs(xv) > 1e-9 && r.ya < 0 && r.yb > 0) ctx.fillText(xvLabel(xv), gx(xv), s0y + 4);
+  ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  for (let yv = Math.ceil(r.ya); yv <= r.yb; yv++) if (Math.abs(yv) > 1e-9 && r.xa < 0 && r.xb > 0) ctx.fillText(xvLabel(yv), s0x - 5, gy(yv));
+  if (s0x > 8 && s0x < W - 8 && s0y > 8 && s0y < H - 8) {
+    ctx.fillStyle = "#cfe0ff"; ctx.font = "bold 11px 'Segoe UI'"; ctx.textAlign = "right"; ctx.textBaseline = "top";
+    ctx.fillText("O", s0x - 4, s0y + 2);
+  }
+
+  /* 渐近线（所有选中函数） */
+  ctx.setLineDash([6, 4]); ctx.lineWidth = 1.4;
+  ctx.strokeStyle = "rgba(255,107,107,.6)";
+  for (const i of state.selected) {
+    const fn = FN[i];
+    const step = periodK(fn);
+    for (const as of asymptotes(fn)) {
+      for (let k = -3; k <= 3; k++) {
+        const v = as.v + k * step;
+        if (as.a === "x") {
+          const sx = gx(v); if (sx < 8 || sx > W - 8) continue;
+          ctx.beginPath(); ctx.moveTo(sx, 10); ctx.lineTo(sx, H - 10); ctx.stroke();
+        } else {
+          const sy = gy(v); if (sy < 8 || sy > H - 8) continue;
+          ctx.beginPath(); ctx.moveTo(10, sy); ctx.lineTo(W - 10, sy); ctx.stroke();
+        }
+      }
+    }
+  }
+  ctx.setLineDash([]);
+
+  /* 多曲线（按选中顺序配色，焦点加粗） */
+  const xEnd = r.xa + (r.xb - r.xa) * state.prog;
+  state.selected.forEach((idx, si) => {
+    const col = colorOf(si);
+    const focus = idx === state.focus;
+    ctx.strokeStyle = col;
+    ctx.lineWidth = focus ? 4 : 2.2;
+    ctx.lineJoin = "round";
+    if (focus) {
+      ctx.shadowColor = col; ctx.shadowBlur = 9;
+    }
+    drawSeg(FN[idx], r.xa, xEnd, 640, gx, gy);
+    ctx.shadowBlur = 0;
+  });
+
+  /* 悬停：所有曲线取点 */
+  if (state.hover !== null && r.xa <= state.hover && state.hover <= r.xb) {
+    const hx = state.hover;
+    ctx.strokeStyle = "rgba(255,255,255,.45)";
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(gx(hx), 12); ctx.lineTo(gx(hx), H - 12); ctx.stroke();
+    ctx.setLineDash([]);
+    let labelY = 46;
+    const labels = [];
+    state.selected.forEach((idx, si) => {
+      const y = FN[idx].f(hx);
+      if (!isFinite(y)) return;
+      const sy = gy(y);
+      if (sy > 4 && sy < H - 4) {
+        ctx.fillStyle = colorOf(si);
+        ctx.beginPath(); ctx.arc(gx(hx), sy, 4.5, 0, 2 * Math.PI); ctx.fill();
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.3; ctx.stroke();
+      }
+      labels.push([FN[idx].name, y, colorOf(si)]);
+    });
+    /* 数值列表（画布左上方竖排） */
+    ctx.font = "bold 11.5px 'Segoe UI'";
+    labels.forEach(([nm, y, col], k) => {
+      const txt = nm + " = " + (Math.abs(y) < 1e4 && Math.abs(y) >= 0.001 ? (+y.toFixed(3)) : y.toExponential(1));
+      ctx.fillStyle = "rgba(8,16,36,.82)";
+      const tw = ctx.measureText(txt).width;
+      roundRect(ctx, 12, labelY - 12, tw + 10, 17, 4); ctx.fill();
+      ctx.fillStyle = col;
+      ctx.textAlign = "left"; ctx.textBaseline = "middle";
+      ctx.fillText(txt, 17, labelY);
+      labelY += 20;
+    });
+  }
+
+  /* 顶部信息 */
+  ctx.fillStyle = "#ffe3b3";
+  ctx.font = "bold 16px 'PingFang SC'";
+  ctx.textAlign = "left"; ctx.textBaseline = "top";
+  ctx.fillText("已选 " + state.selected.length + " 个函数", 14, 10);
+  ctx.fillStyle = "#9db4dd";
+  ctx.font = "12px 'PingFang SC'";
+  ctx.fillText("视图范围  x: [" + round2(r.xa) + ", " + round2(r.xb) + "]   y: [" + round2(r.ya) + ", " + round2(r.yb) + "]", 14, 30);
+}
+function round2(v) { return Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : (+v.toFixed(2)); }
+
+/* 画单条曲线（分定义域段，跳过断点） */
+function drawSeg(fn, xa, xb, N, gx, gy) {
+  ctx.beginPath();
+  let pen = false, lastX = null;
+  for (let i = 0; i <= N; i++) {
+    const x = xa + (xb - xa) * i / N;
+    const v = fn.f(x);
+    const sy = gy(v);
+    const inView = isFinite(v) && Math.abs(v) < 8e5 && sy > -80 && sy < H + 80;
+    if (inView) {
+      const sx = gx(x);
+      const gap = Math.abs(x - lastX) > (xb - xa) / N * 3.2;
+      if (pen && !gap) ctx.lineTo(sx, sy); else { pen = true; ctx.moveTo(sx, sy); }
+      lastX = x;
+    } else pen = false;
+  }
+  ctx.stroke();
+}
+
+/* ---------- 工具 ---------- */
+function niceStep(range) {
+  const raw = range / 7;
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  return p * (raw / p < 3.16 ? 0.5 : 1);
+}
+function xvLabel(v) { return Math.abs(v - Math.round(v)) < 1e-6 ? String(Math.round(v)) : (Math.abs(v) < 10 ? v.toFixed(1) : +v.toFixed(0)); }
+function arrow(x1, y1, x2, y2) {
+  const ang = Math.atan2(y2 - y1, x2 - x1);
+  ctx.fillStyle = "rgba(255,255,255,.65)";
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - 11 * Math.cos(ang - 0.42), y2 - 11 * Math.sin(ang - 0.42));
+  ctx.lineTo(x2 - 11 * Math.cos(ang + 0.42), y2 - 11 * Math.sin(ang + 0.42));
+  ctx.closePath(); ctx.fill();
+}
+function roundRect(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r);
+  c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r);
+  c.arcTo(x, y, x + w, y, r); c.closePath();
+}
+
+/* ---------- UI ---------- */
+function renderFormula() {
+  const fn = FN[state.focus];
+  $("formula").textContent = fn.name;
+  const props = [
+    ["定义域", fn.dom], ["值域", fn.rng],
+    ["奇偶性", fn.par], ["单调性", fn.mono],
+    ["渐近线", fn.asy.join("；") || "无"], ["说明", fn.note]
+  ];
+  $("props").innerHTML = props.map(p =>
+    "<div class='prop'><b>" + p[0] + "：</b>" + p[1] + "</div>").join("");
+}
+
+function renderLegend() {
+  const box = $("legend");
+  box.innerHTML = "";
+  if (!state.selected.length) { box.innerHTML = "<span style='color:#7f93b8'>未选择函数</span>"; return; }
+  state.selected.forEach((idx, si) => {
+    const c = colorOf(si);
+    const focus = idx === state.focus;
+    const s = document.createElement("span");
+    s.style.cursor = "pointer";
+    s.title = "点我设为当前函数";
+    s.innerHTML = "<i style='background:" + c + "; height:3px; width:18px; border:none; display:inline-block; vertical-align:-1px; margin-right:5px;'></i><b style='color:" + c + "; font-weight:" + (focus ? 800 : 600) + ";'>" + FN[idx].name + "</b>" + (focus ? "（当前）" : "　");
+    s.onclick = () => { if (state.anim) stopAnim(); state.focus = idx; renderFormula(); renderLegend(); buildList(); draw(); };
+    box.appendChild(s);
+  });
+  const tip = document.createElement("span");
+  tip.style.opacity = ".55";
+  tip.textContent = "· 渐近线为红虚线 · 点图例切当前函数";
+  box.appendChild(tip);
+}
+
+function buildCats() {
+  const box = $("cats");
+  box.innerHTML = "";
+  CATS.forEach((c) => {
+    const n = FN.filter(f => f.cat === c).length;
+    const b = document.createElement("div");
+    b.className = "cat" + (c === state.cat ? " cur" : "");
+    b.innerHTML = c + " <small>(" + n + "个)</small>";
+    b.onclick = () => { state.cat = c; buildList(); };
+    box.appendChild(b);
+  });
+}
+
+function buildList() {
+  const box = $("fnList");
+  box.innerHTML = "";
+  FN.forEach((f, i) => {
+    if (f.cat !== state.cat) return;
+    const it = document.createElement("div");
+    const sel = state.selected.includes(i);
+    it.className = "fn" + (i === state.focus ? " cur" : "") + (sel ? " sel" : "");
+    it.innerHTML = "<span class='dot'></span>" + f.name + "<span class='chk'>" + (sel ? "✓ 已选" : "") + "</span>";
+    it.onclick = () => toggleSelect(i);
+    box.appendChild(it);
+  });
+  const cur = box.querySelector(".fn.cur");
+  if (cur) cur.scrollIntoView({ block: "nearest" });
+}
+
+function buildAll() { buildCats(); buildList(); renderFormula(); renderLegend(); draw(); }
+/* ---------- 多选逻辑 ---------- */
+function toggleSelect(i) {
+  if (state.anim) stopAnim();
+  const pos = state.selected.indexOf(i);
+  if (pos >= 0) {                       // 已选中 → 取消
+    if (state.selected.length > 1) {
+      state.selected.splice(pos, 1);
+      if (state.focus === i) state.focus = state.selected[state.selected.length - 1];
+    }
+  } else {                               // 未选中 → 加入并设为焦点
+    state.selected.push(i);
+    state.focus = i;
+  }
+  state.prog = 1;
+  buildAll();
+}
+$("clearBtn").onclick = () => {
+  if (state.anim) stopAnim();
+  /* 清除到只剩 1 个（保留焦点函数，避免空图） */
+  const keep = state.focus !== undefined ? state.focus : state.selected[state.selected.length - 1];
+  state.selected = [keep];
+  state.focus = keep;
+  state.prog = 1;
+  buildAll();
+};
+
+/* ---------- 交互：悬停 + 拖动平移 ---------- */
+function sx2x(sx) { return buildMap(viewRange()).ix(sx); }
+let panning = null;
+cv.addEventListener("mousedown", e => { panning = { x: e.clientX, y: e.clientY }; cv.style.cursor = "grabbing"; });
+cv.addEventListener("mouseleave", () => { state.hover = null; draw(); });
+window.addEventListener("mouseup", () => { panning = null; cv.style.cursor = "crosshair"; });
+window.addEventListener("mousemove", e => {
+  if (panning) {
+    /* 拖动平移视图（抓住画面跟着走） */
+    const mp = buildMap(viewRange());
+    const dxs = e.clientX - panning.x, dys = e.clientY - panning.y;
+    if (dxs || dys) {
+      state.panX += dxs / mp.spp;
+      state.panY -= dys / mp.spp;
+      panning.x = e.clientX; panning.y = e.clientY;
+      state.hover = null;
+      draw();
+    }
+    return;
+  }
+  const rect = cv.getBoundingClientRect();
+  const sx = (e.clientX - rect.left) * (W / rect.width);
+  state.hover = sx2x(sx);
+  draw();
+});
+/* 滚轮缩放（指向上放大、指向下缩小） */
+cv.addEventListener("wheel", e => {
+  e.preventDefault();
+  state.zoom *= e.deltaY < 0 ? 1.16 : 1 / 1.16;
+  state.zoom = Math.max(0.3, Math.min(8, state.zoom));
+  draw();
+}, { passive: false });
+cv.addEventListener("dblclick", () => { state.hover = null; state.prog = 1; state.zoom = 1; state.panX = 0; state.panY = 0; draw(); });
+
+/* ---------- 绘制动画 ---------- */
+function stopAnim() {
+  if (state.anim) { cancelAnimationFrame(state.anim); state.anim = null; }
+  $("playBtn").textContent = "▶ 绘制动画";
+  $("playBtn").classList.remove("stop");
+}
+function playAnim() {
+  if (state.anim) { stopAnim(); state.prog = 1; draw(); return; }
+  state.prog = 0;
+  const t0 = performance.now();
+  const step = (t) => {
+    const k = Math.min(1, (t - t0) / 1500);
+    state.prog = k * k * (3 - 2 * k);
+    draw();
+    if (k < 1) state.anim = requestAnimationFrame(step);
+    else { state.anim = null; $("playBtn").textContent = "▶ 绘制动画"; $("playBtn").classList.remove("stop"); }
+  };
+  const b = $("playBtn");
+  b.textContent = "■ 停止";
+  b.classList.add("stop");
+  state.anim = requestAnimationFrame(step);
+}
+$("playBtn").onclick = playAnim;
+
+/* 下一个函数：把列表当前类的下一项加入选择 */
+$("nextBtn").onclick = () => {
+  if (state.anim) stopAnim();
+  let i = state.focus;
+  do { i = (i + 1) % FN.length; } while (i !== state.focus && state.selected.includes(i));
+  state.selected.push(i);
+  state.focus = i;
+  state.cat = FN[i].cat;
+  state.prog = 1;
+  buildAll();
+};
+
+$("notice").innerHTML = "六类 24 个基本初等函数。单击函数名<b>多选</b>、再点取消；<b>拖动画布平移</b>视图、<b>滚轮缩放</b>、双击复位；悬停显示各函数值，缩放/平移后同样适用。坐标系始终完整显示所有曲线与坐标轴。";
+/* ---------- 初始化 ---------- */
+state.selected = [2, 0];   // y=x² 与 y=3
+state.focus = 2;
+state.cat = "幂函数";
+state.prog = 1;
+buildAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>几何级数可视化 · |q|&lt;1 收敛，|q|≥1 发散</title>
+<style>
+  :root{
+    --bg:#0a1428; --card:#0d1b3a; --panel:#0f2148;
+    --title1:#0a1428; --title2:#1e3a6e;
+    --orange:#ff9f2e; --gold:#ffd23d; --red:#ff6b6b; --blue:#67b0f6; --cyan:#4fd6e0;
+    --text:#e8eff9; --muted:#8fa3c4; --line:#27407a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    background:#050d1f; color:var(--text);
+    display:flex; justify-content:center; padding:24px 12px;
+  }
+  .app{width:100%; max-width:1180px; background:var(--card); border-radius:16px;
+       border:1px solid #1c3a72; box-shadow:0 24px 60px rgba(0,0,0,.5); overflow:hidden;}
+  .titlebar{
+    background:linear-gradient(120deg,var(--title1),var(--title2));
+    color:#fff; padding:16px 26px 12px; border-bottom:1px solid #27407a;
+  }
+  .titlebar h1{font-size:21px; font-weight:700; letter-spacing:.5px;}
+  .titlebar h1 em{font-style:normal; color:var(--gold); font-weight:800;}
+  .titlebar .rule{margin-top:8px; font-size:15px; color:#ffe9c9; line-height:1.8;
+     background:rgba(255,159,46,.12); border:1px solid rgba(255,159,46,.4);
+     padding:7px 14px; border-radius:9px; display:inline-block;}
+  .titlebar .rule b{color:var(--orange);}
+  .titlebar p{font-size:12.5px; opacity:.88; margin-top:6px; color:#a9c2ee; line-height:1.7;}
+  .titlebar p b.b{color:#7fc4ff;} .titlebar p b.r{color:#ff9d9d;}
+  /* 双图区 */
+  .dual{display:flex; gap:12px; padding:12px 20px 0; flex-wrap:wrap;}
+  .plot{flex:1; min-width:330px; background:#0c1d3d; border:1px solid #27407a; border-radius:12px; padding:6px 8px 4px;}
+  .plot .pt{font-size:13px; font-weight:700; color:#d7e3ff; padding:2px 6px 4px;}
+  canvas{display:block; width:100%; border-radius:9px; background:linear-gradient(180deg,#0e2148,#081229); border:1px solid #1c3a72;}
+  .legend{display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:#a9c2ee; padding:6px 8px 2px; user-select:none;}
+  .legend i{display:inline-block; width:13px; height:13px; border-radius:3px; vertical-align:-2px; margin-right:5px; border:1px solid rgba(255,255,255,.25);}
+  .legend .b i{background:var(--blue);}
+  .legend .r i{background:var(--red);}
+  .legend .z i{border:none; border-top:2px dashed #ff6b6b; height:0; width:18px;}
+  .legend .o i{background:var(--orange); border:none; width:18px; height:3px;}
+  /* 控制 */
+  .panel{padding:12px 24px 20px; background:#0c1a36; border-top:1px solid #1c385e;}
+  .ctl-row{display:flex; align-items:center; gap:12px; padding:7px 0; flex-wrap:wrap;}
+  .ctl-label{font-size:13.5px; font-weight:700; min-width:140px; color:#d7e3ff;}
+  .ctl-label .sym{font-size:17px; color:var(--gold);}
+  .slider-wrap{flex:1; min-width:180px; display:flex; align-items:center; gap:12px;}
+  input[type=range]{flex:1; height:6px; -webkit-appearance:none; appearance:none; border-radius:3px; outline:none; cursor:pointer;}
+  input[type=range].q{background:linear-gradient(90deg,#7a4a28,var(--orange));}
+  input[type=range].t{background:linear-gradient(90deg,#27407a,#67b0f6);}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:19px; height:19px; border-radius:50%;
+    background:var(--orange); border:3px solid #fff; box-shadow:0 1px 6px rgba(0,0,0,.4); cursor:grab;}
+  input[type=range].t::-webkit-slider-thumb{background:var(--blue);}
+  .val{min-width:110px; text-align:center; font-size:14.5px; font-weight:700; padding:6px 10px;
+     border-radius:9px; background:#0a1a38; border:1px solid #2c4a84; color:var(--gold); font-variant-numeric:tabular-nums;}
+  .presets{display:flex; gap:8px; flex-wrap:wrap; padding:4px 0 2px;}
+  .pv{
+    border:1px solid #2c4a84; background:#0f2148; color:#cfe0ff; padding:5px 14px;
+    border-radius:16px; font-size:13px; cursor:pointer; transition:all .15s; font-weight:600;
+  }
+  .pv:hover{background:#1d3566; border-color:#4a74c0;}
+  .pv.cur{background:linear-gradient(120deg,#c98a1e,#ff9f2e); color:#1a1000; border-color:#ff9f2e;}
+  .pv.bad.cur{background:linear-gradient(120deg,#b33a3a,#ff6b6b); border-color:#ff6b6b; color:#220;}
+  .pv small{display:block; font-size:10px; font-weight:400; opacity:.75;}
+  .status{
+    margin-top:10px; padding:12px 18px; border-radius:12px; font-size:14.5px; line-height:1.6;
+    font-weight:600; background:#0f2148; border:1px solid var(--line); min-height:52px; color:#cfe0ff;
+  }
+  .status .ico{font-size:19px; margin-right:4px;}
+  .status.demo{background:#122852; border-color:#33589e;}
+  .status.ok{background:#0f2a3d; border-color:#1f6f8f;}
+  .status .sub{display:block; font-size:12px; font-weight:400; opacity:.85; margin-top:3px;}
+  .actions{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;}
+  .btn{border:none; padding:11px 20px; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer;
+     background:linear-gradient(120deg,#2a5191,#1e3a6e); color:#fff; transition:all .18s; box-shadow:0 4px 14px rgba(0,0,0,.35);}
+  .btn:hover{transform:translateY(-1px); filter:brightness(1.1);}
+  .btn.stop{background:#8c2737;}
+  .btn.secondary{background:#152a55; color:#cfe0ff; border:1px solid #33589e; box-shadow:none;}
+  .btn.secondary:hover{border-color:#4a74c0;}
+  .notice{font-size:12px; color:#7f93b8; margin-top:10px; line-height:1.7; background:#0e1f42;
+     border-left:3px solid #33589e; padding:8px 12px; border-radius:0 8px 8px 0;}
+  @media (max-width:760px){ .dual{flex-direction:column;} }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="titlebar">
+    <h1>几何级数可视化 <em>·</em> 公比 q 决定收敛还是发散</h1>
+    <div class="rule">级数 1 + q + q² + q³ + …（公比 <b>q</b>）　⇒　<b>|q|&lt;1 收敛</b>（和 S = 1/(1−q)）　｜　<b>|q|≥1 发散</b></div>
+    <p>左图：级数项 uₙ = qⁿ 的柱状图（<b class="b">蓝 = 正项</b>，<b class="r">红 = 负项</b>）—— |q|&lt;1 柱子越来越矮，|q|&gt;1 柱子越来越高；右图：部分和 Sₙ 的折线轨迹（<b class="b">蓝线</b>，<b class="r">红虚线 = 极限和 S</b>，仅收敛时出现）。</p>
+  </div>
+
+  <div class="dual">
+    <div class="plot">
+      <div class="pt">① 级数项 uₙ = qⁿ（柱状图）</div>
+      <canvas id="cv1" width="560" height="420"></canvas>
+      <div class="legend">
+        <span class="b"><i></i>uₙ &gt; 0</span>
+        <span class="r"><i></i>uₙ &lt; 0</span>
+        <span>柱子矮→趋零（收敛项）；柱子高→指数增长（发散项）</span>
+      </div>
+    </div>
+    <div class="plot">
+      <div class="pt">② 部分和 Sₙ = 1+q+…+qⁿ（折线轨迹）</div>
+      <canvas id="cv2" width="560" height="420"></canvas>
+      <div class="legend">
+        <span class="o"><i></i>Sₙ 轨迹</span>
+        <span class="z"><i></i>极限和 S = 1/(1−q)（仅 |q|&lt;1）</span>
+        <span>收敛：折线贴向红线；发散：冲天或震荡</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ctl-row">
+      <span class="ctl-label"><span class="sym">q</span> 公比</span>
+      <div class="slider-wrap">
+        <input type="range" id="q" class="q" min="-2" max="2" step="0.02" value="0.6">
+        <span class="val" id="valQ">q = 0.60</span>
+      </div>
+    </div>
+    <div class="ctl-row">
+      <span class="ctl-label"><span class="sym">n</span> 展示的项数</span>
+      <div class="slider-wrap">
+        <input type="range" id="t" class="t" min="5" max="40" step="1" value="20">
+        <span class="val" id="valT">n = 0~20</span>
+      </div>
+    </div>
+    <div class="presets" id="presets"></div>
+
+    <div class="status" id="status"></div>
+
+    <div class="actions">
+      <button class="btn" id="demoBtn">▶ 自动演示（收/发散两幅面孔）</button>
+      <button class="btn secondary" id="resetBtn">↺ 重置</button>
+    </div>
+    <div class="notice" id="notice"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+ * 几何级数可视化 —— 复刻自《几何级数·收敛与发散》
+ * 几何级数：1 + q + q² + …，公比 q；|q|<1 收敛 S=1/(1−q)，|q|≥1 发散
+ * 左图：项 uₙ=qⁿ 柱状（蓝正/红负）；右图：部分和 Sₙ 折线（红虚线=极限和）
+ * ============================================================ */
+
+const $ = id => document.getElementById(id);
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const state = { q: 0.6, n: 20, demo: null };
+
+const cv1 = $("cv1"), cv2 = $("cv2");
+const x1 = cv1.getContext("2d"), x2 = cv2.getContext("2d");
+
+/* 预设 q 值（关键口径） */
+const PRESETS = [
+  { q: 0.6, label: "q = 0.6", desc: "衰减 收敛" },
+  { q: -0.6, label: "q = −0.6", desc: "交错衰减 收敛", bad: true },
+  { q: 1, label: "q = 1", desc: "全部为 1 发散", bad: true },
+  { q: 1.2, label: "q = 1.2", desc: "加速增长 发散", bad: true },
+  { q: -1.2, label: "q = −1.2", desc: "震荡增大 发散", bad: true }
+];
+
+const Q = () => state.q;
+const N = () => state.n;
+
+/* uₙ 与 Sₙ */
+function un(n) { return Math.pow(Q(), n); }
+function sum(n) { let s = 0; for (let i = 0; i <= n; i++) s += Math.pow(Q(), i); return s; }
+const Slimit = () => 1 / (1 - Q());     // |q|<1
+const isConv = () => Math.abs(Q()) < 1;
+
+/* ---------- 左图：项柱状 ---------- */
+const P1 = { l: 46, r: 16, t: 26, b: 34 };
+function drawTerms() {
+  const q = Q(), nmax = N();
+  const w = cv1.width, h = cv1.height;
+  x1.clearRect(0, 0, w, h);
+  const g = x1.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, "#0e2148"); g.addColorStop(1, "#081229");
+  x1.fillStyle = g; x1.fillRect(0, 0, w, h);
+
+  const pw = w - P1.l - P1.r, ph = h - P1.t - P1.b;
+  // 对称 y 轴 [-yMax, yMax]：x 轴放在画布中部，正柱向上、负柱向下
+  const yMax = Math.max(1, Math.min(6, Math.pow(Math.abs(q), nmax)));
+  const x2p = n => P1.l + pw * (n + 0.5) / (nmax + 1);
+  const y2p = v => P1.t + (yMax - v) / (2 * yMax) * ph;
+  const y0 = y2p(0);
+
+  // 网格（对称）
+  x1.strokeStyle = "rgba(90,140,220,.10)";
+  x1.lineWidth = 1;
+  for (let i = 0; i <= 6; i++) {
+    const yy = P1.t + ph * i / 6;
+    x1.beginPath(); x1.moveTo(P1.l, yy); x1.lineTo(P1.l + pw, yy); x1.stroke();
+  }
+  // y 轴刻度
+  x1.fillStyle = "#7f93b8"; x1.font = "11px 'Segoe UI',sans-serif"; x1.textAlign = "right"; x1.textBaseline = "middle";
+  for (const v of [-yMax, -yMax / 2, 0, yMax / 2, yMax]) x1.fillText(+v.toFixed(2), P1.l - 6, y2p(v));
+
+  // 柱（x 轴居中：正柱向上，负柱向下）
+  const barW = Math.min(26, pw / (nmax + 1) * 0.62);
+  for (let i = 0; i <= nmax; i++) {
+    const u = un(i);
+    const cx = x2p(i);
+    const top = y2p(Math.max(u, -yMax));     // 柱顶（裁剪）
+    const bot = y2p(Math.min(u, yMax));      // 柱底（裁剪）
+    if (u >= 0) {
+      x1.fillStyle = "rgba(103,176,246,.92)";
+      x1.fillRect(cx - barW / 2, top, barW, Math.max(0, y0 - top));
+    } else {
+      x1.fillStyle = "rgba(255,107,107,.92)";
+      x1.fillRect(cx - barW / 2, y0, barW, Math.max(0, bot - y0));
+    }
+    // 超界标记
+    if (Math.abs(u) > yMax) {
+      x1.fillStyle = "#ffd23d";
+      x1.font = "bold 11px 'PingFang SC'";
+      x1.textAlign = "left";
+      if (u > 0) { x1.textBaseline = "bottom"; x1.fillText("↑", cx + barW / 2 + 2, P1.t + 2); }
+      else { x1.textBaseline = "top"; x1.fillText("↓", cx + barW / 2 + 2, P1.t + ph - 2); }
+    }
+  }
+
+  // x 轴（y = 0，居中的水平基线，更醒目）
+  x1.strokeStyle = "rgba(255,255,255,.45)";
+  x1.lineWidth = 1.4;
+  x1.beginPath(); x1.moveTo(P1.l, y0); x1.lineTo(P1.l + pw, y0); x1.stroke();
+  x1.fillStyle = "#cfe0ff"; x1.font = "bold 10px 'Segoe UI'"; x1.textAlign = "left"; x1.textBaseline = "bottom";
+  x1.fillText("0", P1.l - 6, y0 - 2);
+
+  // n 标签
+  x1.fillStyle = "#8fa3c4"; x1.font = "12px 'Segoe UI',sans-serif"; x1.textAlign = "center"; x1.textBaseline = "top";
+  for (let i = 0; i <= nmax; i += 5) x1.fillText(String(i), x2p(i), P1.t + ph + 8);
+  // 标题
+  x1.fillStyle = "#d7e3ff"; x1.font = "bold 14px 'PingFang SC',sans-serif"; x1.textAlign = "left";
+  x1.fillText("uₙ = " + (Math.abs(q - Math.round(q)) < 1e-9 ? Math.round(q) : (+q).toFixed(3)) + "^n", P1.l, 16);
+}
+
+/* ---------- 右图：部分和折线 ---------- */
+const P2 = { l: 46, r: 16, t: 26, b: 34 };
+function drawSums() {
+  const q = Q(), nmax = N();
+  const w = cv2.width, h = cv2.height;
+  x2.clearRect(0, 0, w, h);
+  const g = x2.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, "#0e2148"); g.addColorStop(1, "#081229");
+  x2.fillStyle = g; x2.fillRect(0, 0, w, h);
+
+  const pw = w - P2.l - P2.r, ph = h - P2.t - P2.b;
+  const pts = [];
+  for (let i = 0; i <= nmax; i++) pts.push(sum(i));
+  let lo = Math.min(0, ...pts), hi = Math.max(0, ...pts);
+  const S = Slimit();
+  if (isConv() && isFinite(S)) { lo = Math.min(lo, S); hi = Math.max(hi, S); }
+  // 上下留 6% 余量
+  const span = (hi - lo) || 1;
+  lo -= span * 0.06; hi += span * 0.06;
+
+  const x2p = n => P2.l + pw * n / nmax;
+  const y2p = v => P2.t + (hi - v) / (hi - lo) * ph;
+
+  // 网格
+  x2.strokeStyle = "rgba(90,140,220,.10)";
+  x2.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const yy = P2.t + ph * i / 4;
+    x2.beginPath(); x2.moveTo(P2.l, yy); x2.lineTo(P2.l + pw, yy); x2.stroke();
+  }
+  x2.fillStyle = "#7f93b8"; x2.font = "11px 'Segoe UI',sans-serif"; x2.textAlign = "right"; x2.textBaseline = "middle";
+  for (const v of [hi, (hi + lo) / 2, lo]) if (isFinite(v)) x2.fillText(+v.toFixed(2), P2.l - 6, y2p(v));
+
+  // 红色虚线：极限和（仅收敛时）
+  if (isConv() && isFinite(S)) {
+    const sy = y2p(S);
+    x2.strokeStyle = "rgba(255,107,107,.9)";
+    x2.lineWidth = 2;
+    x2.setLineDash([8, 5]);
+    x2.beginPath(); x2.moveTo(P2.l, sy); x2.lineTo(P2.l + pw, sy); x2.stroke();
+    x2.setLineDash([]);
+    x2.fillStyle = "#ff9d9d";
+    x2.font = "bold 12px 'PingFang SC',sans-serif";
+    x2.textAlign = "left"; x2.textBaseline = "bottom";
+    x2.fillText("极限和 S = " + S.toFixed(3), P2.l + 4, sy - 4);
+  }
+
+  // Sₙ 折线
+  x2.strokeStyle = "#ff9f2e";
+  x2.lineWidth = 2.6;
+  x2.lineJoin = "round";
+  x2.beginPath();
+  pts.forEach((v, i) => {
+    const px = x2p(i), py = y2p(v);
+    if (i === 0) x2.moveTo(px, py); else x2.lineTo(px, py);
+  });
+  x2.stroke();
+  // 点
+  x2.fillStyle = "#ffd23d";
+  pts.forEach((v, i) => {
+    x2.beginPath(); x2.arc(x2p(i), y2p(v), 3.2, 0, 2 * Math.PI); x2.fill();
+  });
+
+  // 坐标
+  x2.strokeStyle = "rgba(255,255,255,.25)";
+  x2.beginPath(); x2.moveTo(P2.l, y2p(0)); x2.lineTo(P2.l + pw, y2p(0)); x2.stroke();
+  x2.fillStyle = "#8fa3c4"; x2.font = "12px 'Segoe UI',sans-serif"; x2.textAlign = "center"; x2.textBaseline = "top";
+  for (let i = 0; i <= nmax; i += 5) x2.fillText(String(i), x2p(i), P2.t + ph + 8);
+  x2.fillStyle = "#d7e3ff"; x2.font = "bold 14px 'PingFang SC',sans-serif"; x2.textAlign = "left";
+  x2.fillText("部分和 Sₙ（n 项和）", P2.l, 16);
+}
+
+function draw() { drawTerms(); drawSums(); }
+
+/* ---------- 状态栏与预设 ---------- */
+function renderStatus() {
+  const q = Q(), conv = isConv();
+  const st = $("status");
+  const S = conv ? "收敛：S = 1/(1−q) = " + Slimit().toFixed(4) : "发散：部分和不收敛";
+  st.className = "status " + (conv ? "ok" : "demo");
+  const dir = q > 0 ? "同号递增" : q < 0 ? "正负交替" : "恒为 0";
+  st.innerHTML = '<span class="ico">' + (conv ? "✅" : "🚫") + '</span>q = <b>' + q.toFixed(2) + '</b>　⇒　<b>' + (conv ? "收敛" : "发散") + '</b>：' +
+    '<span class="sub">级数 ' + short(q) + '… 项' + dir + '。' + (conv ? "柱高逐项衰减，右侧折线贴向红色极限线 S = " + Slimit().toFixed(3) + "。" : "柱高不减反增/震荡，右侧折线冲天或乱跳，找不到有限和。") + '</span>';
+}
+function short(q) {
+  const neg = q < 0;
+  const qs = Math.abs(q);
+  const s1 = Math.abs(q - Math.round(q)) < 1e-9 ? Math.round(qs) : (+qs).toFixed(2);
+  if (!neg) return "1 + " + s1 + " + " + s1 + "² + " + s1 + "³ + ";
+  return "1 − " + s1 + " + " + s1 + "² − " + s1 + "³ + ";
+}
+
+function buildPresets() {
+  const box = $("presets");
+  box.innerHTML = "";
+  PRESETS.forEach(p => {
+    const b = document.createElement("div");
+    b.className = "pv" + (p.bad ? " bad" : "") + (Math.abs(state.q - p.q) < 1e-9 ? " cur" : "");
+    b.innerHTML = p.label + "<small>" + p.desc + "</small>";
+    b.onclick = () => {
+      if (state.demo) stopDemo();
+      state.q = p.q;
+      syncInputs(); renderStatus(); draw(); buildPresets();
+    };
+    box.appendChild(b);
+  });
+}
+
+function syncInputs() {
+  $("q").value = state.q;
+  $("t").value = state.n;
+  $("valQ").textContent = "q = " + state.q.toFixed(2);
+  $("valT").textContent = "n = 0~" + state.n;
+}
+
+/* ---------- 事件 ---------- */
+$("q").addEventListener("input", e => {
+  if (state.demo) stopDemo();
+  state.q = parseFloat(e.target.value);
+  syncInputs(); renderStatus(); draw(); buildPresets();
+});
+$("t").addEventListener("input", e => {
+  if (state.demo) stopDemo();
+  state.n = parseInt(e.target.value, 10);
+  syncInputs(); renderStatus(); draw();
+});
+$("resetBtn").onclick = () => {
+  if (state.demo) stopDemo();
+  state.q = 0.6; state.n = 20;
+  syncInputs(); renderStatus(); draw(); buildPresets();
+};
+
+/* ---------- 自动演示 ---------- */
+function stopDemo() {
+  if (state.demo) state.demo.stop = true;
+}
+async function comment(text, ms) {
+  const st = $("status");
+  st.className = "status demo";
+  st.innerHTML = '<span class="ico">🎬</span>' + text;
+  await sleep(ms);
+}
+async function runDemo() {
+  const token = { stop: false };
+  state.demo = token;
+  const b = $("demoBtn");
+  b.textContent = "■ 停止演示";
+  b.classList.add("stop");
+  try {
+    const steps = [
+      { q: 0.6, t: "q=0.6：每一项都在缩小，柱子越来越矮；右侧折线平滑贴向红色极限 S=2.5 —— 收敛。", ms: 3400 },
+      { q: -0.6, t: "q=−0.6：柱子正负交替但越来越矮；折线在红线上下震荡、振幅收窄 —— 也收敛。", ms: 3400 },
+      { q: 1, t: "q=1：所有柱子一样高，1+1+1+… 加 n 项就是 n —— 折线直线上升，发散。", ms: 3200 },
+      { q: 1.2, t: "q=1.2：柱子越来越高（指数增长），折线加速冲高 —— 发散。", ms: 3200 },
+      { q: -1.2, t: "q=−1.2：柱子正负交替且越来越高，折线剧烈震荡，找不到极限 —— 发散。", ms: 3400 }
+    ];
+    for (const s of steps) {
+      if (token.stop) return;
+      state.q = s.q;
+      syncInputs(); renderStatus(); draw(); buildPresets();
+      await comment(s.t, s.ms);
+    }
+    if (token.stop) return;
+    comment("核心结论：|q|&lt;1 收敛，|q|≥1 发散 —— 项是否“像几何级数那样快速衰减”，就是所有审敛法要回答的问题。", 3600);
+  } finally {
+    state.demo = null;
+    b.textContent = "▶ 自动演示（收/发散两幅面孔）";
+    b.classList.remove("stop");
+  }
+}
+$("demoBtn").onclick = () => {
+  if (state.demo) { stopDemo(); return; }
+  runDemo();
+};
+/* ---------- 初始化 ---------- */
+$("notice").innerHTML = "拖动 q 滑块改公比（−2~2），拖动 n 滑块改展示项数；点预设按钮快速试 q=0.6、−0.6、1、1.2、−1.2。左柱与右折线实时联动：柱子衰减→收敛，柱子增长/乱跳→发散。";
+syncInputs();
+renderStatus();
+draw();
+buildPresets();
+</script>
+</body>
+</html>
