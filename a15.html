@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>8 个特殊函数 · 动态图形</title>
+<style>
+  :root{
+    --bg:#0a1428; --card:#0d1b3a; --panel:#0f2148; --title1:#0a1428; --title2:#1e3a6e;
+    --orange:#ff9f2e; --gold:#ffd23d; --red:#ff6b6b; --blue:#67b0f6; --green:#5ee8a6;
+    --text:#e8eff9; --muted:#8fa3c4; --line:#27407a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:#050d1f;color:var(--text);
+       display:flex;justify-content:center;padding:18px 12px;}
+  .app{width:100%;max-width:1040px;background:var(--card);border-radius:16px;border:1px solid #1c3a72;
+       box-shadow:0 24px 60px rgba(0,0,0,.5);overflow:hidden;}
+  .titlebar{background:linear-gradient(120deg,var(--title1),var(--title2));color:#fff;
+       padding:12px 26px 10px;border-bottom:1px solid #27407a;}
+  .titlebar h1{font-size:21px;font-weight:700;letter-spacing:1px;}
+  .titlebar h1 em{font-style:normal;color:var(--gold);}
+  .titlebar p{font-size:12px;opacity:.88;color:#a9c2ee;margin-top:4px;line-height:1.6;}
+  .stage{padding:12px 20px 18px;}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+  .ftab{border:1px solid #33589e;background:#152a55;color:#cfe0ff;border-radius:9px;
+       padding:7px 12px;font-size:14px;font-weight:800;cursor:pointer;font-family:'Cambria Math','Times New Roman',serif;
+       transition:all .15s;}
+  .ftab.on{background:linear-gradient(120deg,#c98a1e,#ff9f2e);color:#1a1000;border-color:#ffbf5e;}
+  .ftab:hover{filter:brightness(1.12);}
+  .wrap{position:relative;}
+  canvas#cv{width:100%;border-radius:10px;background:radial-gradient(circle at 50% 42%,#12285a,#060f22 80%);
+       border:1px solid #1c3a72;display:block;}
+  .scrub{display:flex;align-items:center;gap:12px;padding:10px 4px 2px;flex-wrap:wrap;}
+  .scrub .lab{font-size:12px;color:#8fb4f5;white-space:nowrap;}
+  input[type=range]{flex:1;min-width:160px;height:6px;border-radius:3px;-webkit-appearance:none;appearance:none;
+       background:linear-gradient(90deg,#27407a,#67b0f6);outline:none;cursor:ew-resize;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:19px;height:19px;border-radius:50%;
+       background:var(--gold);border:3px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.5);cursor:grab;}
+  .curval{min-width:172px;text-align:center;font-size:13px;font-weight:700;color:var(--gold);
+       background:#0a1a38;border:1px solid #2c4a84;border-radius:9px;padding:6px 8px;}
+  .btn{border:none;padding:11px 18px;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;transition:all .15s;}
+  .btn.play{background:linear-gradient(120deg,#2a5191,#1e3a6e);color:#fff;}
+  .btn:hover{filter:brightness(1.12);}
+  .info{margin-top:10px;border-radius:12px;padding:12px 16px;font-size:13.5px;line-height:2;
+       background:#0f2148;border:1px solid #33589e;}
+  .info .head{font-size:15px;color:var(--gold);font-weight:800;font-family:'Cambria Math','Times New Roman',serif;}
+  .info .key{color:#7ef0b6;}
+  .exy{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:6px;}
+  .exy div{background:#081229;border:1px solid #27407a;border-radius:8px;padding:6px 10px;font-size:12.5px;}
+  .exy div span{color:#8fb4f5;} .exy div b{color:#d7e3ff;font-weight:700;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="titlebar">
+    <h1>8 个特殊函数 <em>· 动态图形</em></h1>
+    <p>符号函数 sgn(x) · 狄利克雷 D(x) · 黎曼 R(x) · ReLU · sigmoid · 取整 [x]（向左） · 小数 {x}=x−[x] · 震荡 x·sin(1/x)。▷ 播放逐段演示，金色动点扫过区间（狄利克雷/黎曼为<b>示意画法</b>，画不出连续曲线是正常的）。</p>
+  </div>
+
+  <div class="stage">
+    <div class="tabs" id="tabBar"></div>
+
+    <div class="wrap">
+      <canvas id="cv" width="940" height="430"></canvas>
+    </div>
+
+    <div class="scrub">
+      <span class="lab" id="scrubLab">进度</span>
+      <input type="range" id="scrub" min="0" max="100" step="1" value="55">
+      <span class="curval" id="curVal">—</span>
+      <button class="btn play" id="playBtn">▶ 播放动画</button>
+    </div>
+
+    <div class="info" id="info"></div>
+  </div>
+</div>
+<script>"use strict";
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const f3 = v => String(+v.toFixed(3));
+const gcd = (a, b) => b ? gcd(b, a % b) : a;
+
+const FUNC = [
+  { name:"符号函数 sgn(x)", kind:"fn", frag:true,
+    f: x => x > 0 ? 1 : (x < 0 ? -1 : 0),
+    xr:[-3.6,3.6], yr:[-1.9,1.9], clip:null, breaks:[0],
+    marks:[ {x:0,y:0,open:false},{x:0,y:1,open:true} ],
+    hint:"符号函数（分段函数的招牌例子）：x&gt;0 取 <b>1</b>、x&lt;0 取 <b>−1</b>、x=0 取 <b>0</b>。两条水平线在 x=0 处跳跃——左极限 −1、右极限 +1，但函数在 0 处取中间值 0：<b>1 与 −1 处是空心圆（不取）</b>，<b>0 处是实心圆（取）</b>。播放/拖动可见动点从 −1 跳到 1（经过 0）。",
+    at:[["定义","x&gt;0→1；x=0→0；x&lt;0→−1"],["值域","{−1, 0, 1}"],["间断点","x=0（跳跃间断）"],["记号","空心=不取，实心=取"]] },
+  { name:"狄利克雷 D(x)", kind:"dirichlet",
+    xr:[-0.15,1.15], yr:[-0.35,1.35], clip:null,
+    hint:"D(x)=1（x 有理）、0（x 无理）。画不成连续曲线——它在<b>每个点都不连续</b>：任意开区间里有理数与无理数都稠密，取值在 0/1 间反复横跳。此处为<b>示意画法</b>：金点=有理(1)、蓝点=无理(0)。",
+    at:[["定义","有理数→1；无理数→0"],["连续性","处处不连续（无处连续）"],["振荡","任意小邻域内 0、1 并存"],["可积性","Riemann 不可积"]] },
+  { name:"黎曼 R(x)", kind:"riemann",
+    xr:[-0.08,1.08], yr:[-0.24,1.24], clip:null,
+    hint:"R(x)=1/q（x=p/q 最简）；0 与无理数→0。图像是<b>一簇逐层变密的点</b>：q=1 只有最高点 1；q 越大点越多、高度 1/q 越低。它在<b>每个无理点连续、有理点不连续</b>。播放先逐层展开（q=1→40），再让动点扫过验证取值。",
+    at:[["定义","p/q 最简→1/q；无理数与0→0"],["连续性","无理点连续、有理点间断"],["最高点","R(1)=1"],["备注","在[0,1]上可积但几乎处处不连续"]] },
+  { name:"ReLU", kind:"fn",
+    f: x => Math.max(0, x),
+    xr:[-4,4], yr:[-1.1,4.5], clip:null,
+    hint:"修正线性单元：x&lt;0 一律为 0，x≥0 原样输出，即 max(0,x)。深度学习中应用最广的激活函数；x=0 处是“折角”——连续但不可导。",
+    at:[["定义","max(0, x)"],["值域","[0,+∞)"],["x=0","连续但不可导（折角）"],["应用","神经网络激活函数"]] },{ name:"sigmoid", kind:"fn",
+    f: x => 1/(1+Math.exp(-x)),
+    xr:[-7.5,7.5], yr:[-0.3,1.3], clip:null,
+    refs:[{v:1,lab:"y=1 渐近线",below:false},{v:0,lab:"y=0 渐近线",below:true}],
+    hint:"σ(x)=1/(1+e⁻ˣ)：把任意实数“挤压”到 (0,1)；过 (0,0.5)，x→∞ 贴 1、x→−∞ 贴 0（两条水平渐近线）。常用于逻辑回归与神经网络激活，输出可解释为概率。",
+    at:[["定义","1/(1+e⁻ˣ)"],["值域","(0,1)"],["过点","(0, 0.5)"],["渐近线","y=0 与 y=1"]] },
+  { name:"取整 [x]（向左取）", kind:"fn", step:true,
+    f: x => Math.floor(x),
+    xr:[-4.3,4.3], yr:[-5.2,5.2], clip:null,
+    hint:"取整函数（向左取整 / 向下取整，记 [x]）：[x]=不超过 x 的最大整数，如 [2.7]=2、[−1.3]=−2。图形为<b>阶梯</b>：在 [n, n+1) 上恒为 n，整点处向上跳 1（左闭右开：整数 n 处实心取到，段尾空心圆不取）。有可数无穷多个跳跃间断点。",
+    at:[["定义","不超过 x 的最大整数 [x]"],["例子","[2.7]=2，[−1.3]=−2"],["区间值","x∈[n,n+1) → n"],["端点","整数左闭实心、右开空心"]] },
+  { name:"小数部分 {x}=x−[x]", kind:"fn", step:true,
+    f: x => x - Math.floor(x),
+    xr:[-3.4,3.4], yr:[-0.32,1.32], clip:null,
+    hint:"小数部分 {x}=x−[x]（[x] 为向左取整），取值于 [0,1)，周期 1 的<b>锯齿波</b>：每段从整数处 0（实心）升到逼近 1（空心不取），到下一个整数再跳回 0。分解式 x=[x]+{x}，如 2.7=[2.7]+{2.7}=2+0.7。",
+    at:[["定义","x−[x]（[x] 左取整）"],["值域","[0,1)"],["例子","{2.7}=0.7，{−0.3}=0.7"],["周期","1（锯齿波）"]] },
+  { name:"振荡 x·sin(1/x)", kind:"fn", osc:true,
+    f: x => x !== 0 ? x * Math.sin(1/x) : 0,
+    xr:[-0.45,0.45], yr:[-0.45,0.45], clip:null,
+    hint:"x→0 时 1/x→∞，正弦以超高频振荡，但振幅被 |x| 夹住 → 整体被压向 0。补充定义 f(0)=0 后<b>处处连续</b>（夹逼定理）。播放可见金点扫描时两侧高频振荡向中间“塌缩”。",
+    at:[["定义","x·sin(1/x)（x≠0），补充 f(0)=0"],["极限","lim f(x)=0（x→0，夹逼）"],["连续性","补充定义后处处连续"],["图像","振幅∝|x| 的高频振荡"]] }
+];
+const state = { fi:0, t:0.55, playing:false, token:null };
+const CV = $("cv"), ct = CV.getContext("2d");
+const W = CV.width, H = CV.height;
+const P = { l:58, r:26, t:30, b:42 };
+const pw = W-P.l-P.r, ph = H-P.t-P.b;
+const C = () => FUNC[state.fi];
+const X0 = () => C().xr[0], X1 = () => C().xr[1];
+const x2 = x => P.l + (x - X0())/(X1()-X0())*pw;
+const y2 = v => P.t + (C().yr[1]-v)/(C().yr[1]-C().yr[0])*ph;
+const f2 = v => String(+v.toFixed(2));
+function arrowTri(x1,y1,x2,y2,col){
+  const ang = Math.atan2(y2-y1,x2-x1);
+  ct.fillStyle = col; ct.strokeStyle = col;
+  ct.beginPath(); ct.moveTo(x2,y2);
+  ct.lineTo(x2-10*Math.cos(ang-0.4), y2-10*Math.sin(ang-0.4));
+  ct.lineTo(x2-10*Math.cos(ang+0.4), y2-10*Math.sin(ang+0.4));
+  ct.closePath(); ct.fill();
+}function draw() {
+  const c = C();
+  const [x0, x1] = c.xr, [lo, hi] = c.yr;
+  ct.clearRect(0, 0, W, H);
+  const bg = ct.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#0e2148"); bg.addColorStop(1, "#081229");
+  ct.fillStyle = bg; ct.fillRect(0, 0, W, H);
+  /* 网格 */
+  ct.strokeStyle = "rgba(120,170,255,.12)"; ct.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const yy = P.t + ph * i / 4;
+    ct.beginPath(); ct.moveTo(P.l, yy); ct.lineTo(P.l + pw, yy); ct.stroke();
+  }
+  /* 坐标轴 */
+  const hasX = lo < 0 && hi > 0, hasY = x0 < 0 && x1 > 0;
+  if (hasY) {
+    const ax = x2(0);
+    ct.strokeStyle = "rgba(255,255,255,.55)"; ct.lineWidth = 1.6;
+    ct.beginPath(); ct.moveTo(ax, P.t + ph); ct.lineTo(ax, P.t + 4); ct.stroke();
+    arrowTri(ax, P.t + 4, ax, P.t - 2, "rgba(255,255,255,.7)");
+    ct.fillStyle = "#d7e3ff"; ct.font = "bold 13px 'Cambria Math'";
+    ct.textAlign = "left"; ct.textBaseline = "bottom";
+    ct.fillText("y", ax + 5, P.t - 2);
+  }
+  if (hasX) {
+    const ay = y2(0);
+    ct.strokeStyle = "rgba(79,195,247,.95)"; ct.lineWidth = 2.1;
+    ct.beginPath(); ct.moveTo(P.l, ay); ct.lineTo(P.l + pw - 4, ay); ct.stroke();
+    arrowTri(P.l + pw - 4, ay, P.l + pw + 2, ay, "rgba(79,195,247,.95)");
+    ct.fillStyle = "#9bd7ff"; ct.font = "bold 13px 'Cambria Math'";
+    ct.textAlign = "left"; ct.textBaseline = "bottom";
+    ct.fillText("x", P.l + pw + 7, ay - 3);
+  }
+  /* 参考线 */
+  if (c.refs) c.refs.forEach(r => {
+    const ty = y2(r.v);
+    ct.strokeStyle = r.col || "rgba(79,195,247,.55)"; ct.lineWidth = 1.3;
+    ct.setLineDash([6, 5]);
+    ct.beginPath(); ct.moveTo(P.l, ty); ct.lineTo(P.l + pw, ty); ct.stroke();
+    ct.setLineDash([]);
+    ct.fillStyle = "#9bd7ff"; ct.font = "bold 11px 'PingFang SC'";
+    ct.textAlign = "left"; ct.textBaseline = r.below ? "top" : "bottom";
+    ct.fillText(r.lab, P.l + 4, ty + (r.below ? 5 : -4));
+  });
+  /* 刻度 */
+  ct.fillStyle = "#7f93b8"; ct.font = "10.5px 'Segoe UI'";
+  ct.textAlign = "right"; ct.textBaseline = "middle";
+  for (const v of [hi, lo]) ct.fillText(f2(v), P.l - 6, y2(v));
+  ct.textAlign = "center"; ct.textBaseline = "top";
+  const stepX = (x1 - x0) / 4;
+  for (let i = 0; i <= 4; i++) ct.fillText(f2(x0 + stepX * i), x2(x0 + stepX * i), P.t + ph + 6);
+  /* 分派绘制 */
+  if (c.kind === "dirichlet") drawDirichlet(c);
+  else if (c.kind === "riemann") drawRiemann(c);
+  else drawCurve(c);
+  /* 顶部函数名 */
+  ct.fillStyle = "#d7e3ff"; ct.font = "bold 15px 'Cambria Math'";
+  ct.textAlign = "left"; ct.textBaseline = "top";
+  ct.fillText(c.name + "（▷ 播放 / 拖动滑块观察）", P.l, P.t);
+}
+function drawCurve(c) {
+  const [x0, x1] = c.xr, [lo, hi] = c.yr;
+  const xp = x0 + (x1 - x0) * state.t;
+  const N = c.osc ? 1600 : 900;
+  const inY = v => v > (lo - 12) && v < (hi + 12);
+  ct.strokeStyle = "#ff9f2e"; ct.lineWidth = 3; ct.lineJoin = "round";
+  ct.beginPath();
+  let pen = false, lastX = null, lastV = null, endSX = null, endSY = null;
+  const dots = [];                 // 端点圆先收集，曲线描完再统一画（避免 beginPath 打断主路径）
+  for (let i = 0; i <= N; i++) {
+    const x = x0 + (x1 - x0) * i / N;
+    if (x > xp + (x1 - x0) / N * 1.2) break;
+    const v = c.f(x);
+    const ok = isFinite(v) && inY(v) && (c.clip === null || Math.abs(v) <= c.clip);
+    if (ok) {
+      const sx = x2(x), sy = y2(v);
+      let gap = false;
+      if (pen) {
+        if (c.step) gap = Math.floor(x) !== Math.floor(lastX);
+        else if (c.frag && c.breaks) gap = c.breaks.some(b => lastX - b < 0 && x - b >= -1e-12);
+        else gap = Math.abs(v - lastV) > (hi - lo) * 0.5;
+      }
+      if (pen && !gap) ct.lineTo(sx, sy);
+      else {
+        pen = true; ct.moveTo(sx, sy);
+        if (gap && c.step && endSX !== null) { dots.push(0, endSX, endSY, 1, sx, sy); }
+      }
+      endSX = sx; endSY = sy;
+      lastX = x; lastV = v;
+    } else pen = false;
+  }
+  ct.stroke();
+  /* 曲线上层：画阶梯端点圆 */
+  for (let i = 0; i < dots.length; i += 3) {
+    if (dots[i] === 0) openDot(dots[i + 1], dots[i + 2]);
+    else fillDot(dots[i + 1], dots[i + 2]);
+  }
+  /* frag 特殊点标记与 marks */
+  if (c.frag && c.breaks) c.breaks.forEach(b => {
+    const vl = c.f(b - 1e-9), vr = c.f(b + 1e-9);
+    if (Math.abs(vl - vr) > 1e-9) openDot(x2(b), y2(vl));   // 左极限空心
+  });
+  if (c.marks) c.marks.forEach(m => {
+    if (m.open) openDot(x2(m.x), y2(m.y));
+    else { fillDot(x2(m.x), y2(m.y)); }
+  });
+  /* 金色动点 */
+  const vx = c.f(xp);
+  if (isFinite(vx) && inY(vx) && !(c.clip !== null && Math.abs(vx) > c.clip)) {
+    const px = x2(xp), py = y2(vx), pulse = 1 + 0.1 * Math.sin(state.t * 30);
+    ct.fillStyle = "#ffd23d";
+    ct.beginPath(); ct.arc(px, py, 6.5 * pulse, 0, 6.283); ct.fill();
+    ct.strokeStyle = "#fff"; ct.lineWidth = 2; ct.stroke();
+    ct.setLineDash([4, 3]); ct.strokeStyle = "rgba(255,210,61,.55)"; ct.lineWidth = 1;
+    ct.beginPath(); ct.moveTo(px, P.t + 4); ct.lineTo(px, P.t + ph - 4); ct.stroke();
+    ct.setLineDash([]);
+    $("curVal").textContent = "x = " + f3(xp) + "，f(x) = " + f3(vx);
+  } else {
+    $("curVal").textContent = "x = " + f3(xp) + "（此区间内函数无意义/超出视窗）";
+  }
+}
+function openDot(sx, sy) {
+  ct.strokeStyle = "#ffd23d"; ct.lineWidth = 2;
+  ct.beginPath(); ct.arc(sx, sy, 5, 0, 6.283); ct.stroke();
+  ct.strokeStyle = "#000"; ct.lineWidth = 1;
+  ct.beginPath(); ct.arc(sx, sy, 5, 0, 6.283); ct.stroke();
+}
+function fillDot(sx, sy) {
+  ct.fillStyle = "#ffd23d";
+  ct.beginPath(); ct.arc(sx, sy, 4.6, 0, 6.283); ct.fill();
+  ct.strokeStyle = "#fff"; ct.lineWidth = 1.4; ct.stroke();
+}function drawDirichlet(c) {
+  const [x0, x1] = c.xr, [lo, hi] = c.yr;
+  /* 两条取值线 */
+  [[1, "#ffd23d", "D = 1（有理数，金）"], [0, "#67b0f6", "D = 0（无理数，蓝）"]].forEach(([yv, col, lab]) => {
+    const ty = y2(yv);
+    ct.strokeStyle = col; ct.globalAlpha = .35; ct.setLineDash([5, 4]); ct.lineWidth = 1.6;
+    ct.beginPath(); ct.moveTo(P.l, ty); ct.lineTo(P.l + pw, ty); ct.stroke();
+    ct.setLineDash([]); ct.globalAlpha = 1;
+    ct.fillStyle = col; ct.font = "bold 12px 'Segoe UI'";
+    ct.textAlign = "left"; ct.textBaseline = yv === 1 ? "bottom" : "top";
+    ct.fillText(lab, P.l + 6, yv === 1 ? ty - 8 : ty + 26);
+  });
+  /* 示意点：伪随机赋“有理/无理”，分挂两条线上下 —— 加密成两条稠密点带 */
+  const nx = 170;
+  for (let i = 0; i < nx; i++) {
+    const x = x0 + (x1 - x0) * (i + 0.5) / nx;
+    const isRat = ((i * 2654435761) >>> 0) % 3 === 0;
+    const val = isRat ? 1 : 0;
+    const jitter = Math.sin(i * 27.3) * 1.6;             // 上下微抖，像“毛刺”
+    const px = x2(x), py = y2(val) + (isRat ? -3.5 : 3.5) + jitter;
+    ct.fillStyle = isRat ? "#ffd23d" : "#67b0f6";
+    ct.globalAlpha = .9;
+    ct.beginPath(); ct.arc(px, py, 2.0, 0, 6.283); ct.fill();
+    ct.globalAlpha = 1;
+  }
+  /* 说明 */
+  ct.fillStyle = "#8fa3c4"; ct.font = "bold 12px 'PingFang SC'";
+  ct.textAlign = "left"; ct.textBaseline = "middle";
+  ct.fillText("不连续曲线无法逐点画出，此为分层示意——任何小区间内 0、1 都密集并存", P.l + 6, P.t + ph * 0.5 - 28);
+  /* 金点：D 值在 0/1 间随机跳动 */
+  const xp = x0 + (x1 - x0) * state.t;
+  const dval = Math.random() < 0.5 ? 1 : 0;
+  const gx = x2(xp), gy = y2(dval) + (dval ? -8 : 8);
+  ct.fillStyle = "#ffd23d";
+  ct.beginPath(); ct.arc(gx, gy, 7, 0, 6.283); ct.fill();
+  ct.strokeStyle = "#fff"; ct.lineWidth = 2; ct.stroke();
+  ct.setLineDash([4, 3]); ct.strokeStyle = "rgba(255,210,61,.5)"; ct.lineWidth = 1;
+  ct.beginPath(); ct.moveTo(gx, P.t + 4); ct.lineTo(gx, P.t + ph - 4); ct.stroke();
+  ct.setLineDash([]);
+  $("curVal").textContent = "x = " + f3(xp) + "，D(x) = " + dval + "（" +
+    (dval ? "此示找出一个有理数点" : "此示找出一个无理数点") + "；任意邻域内取值都在 0↔1 间横跳）";
+}
+function drawRiemann(c) {
+  const [x0, x1] = c.xr, [lo, hi] = c.yr;
+  /* y=0 基线 */
+  const ty = y2(0);
+  ct.strokeStyle = "rgba(103,176,246,.5)"; ct.setLineDash([5, 4]); ct.lineWidth = 1.6;
+  ct.beginPath(); ct.moveTo(P.l, ty); ct.lineTo(P.l + pw, ty); ct.stroke();
+  ct.setLineDash([]);
+  ct.fillStyle = "#67b0f6"; ct.font = "bold 12px 'Segoe UI'";
+  ct.textAlign = "left"; ct.textBaseline = "top";
+  ct.fillText("y = 0（无理数与 0 处）", P.l + 6, ty + 8);
+  /* 逐层点数（q 从 1 到 40，随播放展开） */
+  const QALL = 40;
+  const qParsed = Math.min(QALL, Math.max(1, Math.round(state.t / 0.55 * QALL)));
+  for (let q = 1; q <= qParsed; q++) {
+    const h = 1 / q;
+    for (let p = 0; p <= q; p++) {
+      if (p === 0 || gcd(p, q) !== 1) continue;
+      const px = x2(q === 1 ? 1 : p / q), py = y2(h);
+      ct.fillStyle = q <= 6 ? "#ffd23d" : "#67b0f6";
+      ct.beginPath(); ct.arc(px, py, 2.8, 0, 6.283); ct.fill();
+    }
+  }
+  ct.fillStyle = "#ffd23d"; ct.font = "bold 12px 'Segoe UI'";
+  ct.textAlign = "left"; ct.textBaseline = "bottom";
+  ct.fillText("q=1（最高点 R(1)=1）", x2(1) + 8, y2(1) - 4);
+  ct.fillStyle = "#8fa3c4"; ct.font = "bold 12px 'PingFang SC'";
+  ct.textAlign = "left"; ct.textBaseline = "middle";
+  ct.fillText("q=2,3,4,… 层数越大、点越密越低", P.l + 6, P.t + ph * 0.72 + 4);
+  /* 动点阶段：扫过 [0,1] 并求 R(x) */
+  const t2 = Math.min(1, Math.max(0, (state.t - 0.55) / 0.45));
+  const xp = t2;                         // x ∈ [0,1]
+  const gx = x2(xp);
+  let rq = 0, rp = 0;
+  for (let q = 1; q <= 200 && rq === 0; q++) {
+    for (let p = 0; p <= q; p++) {
+      if (p === 0 || gcd(p, q) !== 1) continue;
+      if (Math.abs(xp - p / q) < 1e-12) { rq = q; rp = p; break; }
+    }
+  }
+  const gy = rq ? y2(1 / rq) : y2(0);
+  ct.fillStyle = "#ffd23d";
+  ct.beginPath(); ct.arc(gx, gy, 6.5, 0, 6.283); ct.fill();
+  ct.strokeStyle = "#fff"; ct.lineWidth = 2; ct.stroke();
+  ct.setLineDash([4, 3]); ct.strokeStyle = "rgba(255,210,61,.5)"; ct.lineWidth = 1;
+  ct.beginPath(); ct.moveTo(gx, P.t + 4); ct.lineTo(gx, P.t + ph - 4); ct.stroke();
+  ct.setLineDash([]);
+  $("curVal").textContent = "x = " + f3(xp) + "，R(x) = " +
+    (rq ? ("1/" + rq + "（x 为最简有理数 " + rp + "/" + rq + "）") : "0（0 或无理数处）") +
+    "（层 q ≤ 40 可见；到 q=200 仍逐点成立）";
+}function updateInfo() {
+  const c = C();
+  const rows = c.at.map(a => "<div><span>" + a[0] + "：</span><b>" + a[1] + "</b></div>").join("");
+  $("info").innerHTML =
+    "<span class='head'>" + c.name + "</span>　<span class='key'>" + c.hint + "</span>" +
+    "<div class='exy'>" + rows + "</div>";
+}
+function syncScrub() {
+  const s = $("scrub"), v = Math.round(state.t * 100);
+  if (s.value != v) s.value = v;
+}
+function stopPlay() {
+  if (state.token) { state.token.stop = true; state.token = null; }
+  state.playing = false;
+  $("playBtn").textContent = "▶ 播放动画";
+}
+async function play() {
+  if (state.playing) return;
+  state.playing = true; state.t = 0;
+  const token = { stop: false }; state.token = token;
+  const b = $("playBtn"); b.textContent = "■ 停止";
+  const dur = 4600, t0 = performance.now();
+  while (state.t < 1) {
+    if (token.stop) break;
+    state.t = Math.min(1, (performance.now() - t0) / dur);
+    draw(); syncScrub();
+    await sleep(28);
+  }
+  state.playing = false; token.stop = false; state.token = null;
+  b.textContent = "▶ 重新播放";
+}
+$("scrub").addEventListener("input", e => {
+  if (state.playing) stopPlay();
+  state.t = parseInt(e.target.value, 10) / 100;
+  draw();
+});
+$("playBtn").addEventListener("click", () => {
+  if (state.playing) { state.token && (state.token.stop = true); }
+  else play();
+});
+function buildTabs() {
+  const bar = $("tabBar");
+  bar.innerHTML = "";                  // 先清空，避免重复点击时按钮无限累积
+  FUNC.forEach((c, i) => {
+    const b = document.createElement("button");
+    b.className = "ftab" + (i === state.fi ? " on" : "");
+    b.textContent = c.name;
+    b.addEventListener("click", () => {
+      if (state.playing) stopPlay();
+      state.fi = i; state.t = 0.55;
+      buildTabs(); draw(); syncScrub(); updateInfo();
+    });
+    bar.appendChild(b);
+  });
+}
+/* ---------- 初始化 ---------- */
+buildTabs();
+draw(); syncScrub(); updateInfo();
+</script>
+</body>
+</html>

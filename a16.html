@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>几类反函数 · 动态图形</title>
+<style>
+  :root{
+    --bg:#0a1428; --card:#0d1b3a; --panel:#0f2148; --title1:#0a1428; --title2:#1e3a6e;
+    --orange:#ff9f2e; --gold:#ffd23d; --red:#ff6b6b; --blue:#67b0f6; --green:#5ee8a6;
+    --text:#e8eff9; --muted:#8fa3c4; --line:#27407a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:#050d1f;color:var(--text);
+       display:flex;justify-content:center;padding:18px 12px;}
+  .app{width:100%;max-width:1040px;background:var(--card);border-radius:16px;border:1px solid #1c3a72;
+       box-shadow:0 24px 60px rgba(0,0,0,.5);overflow:hidden;}
+  .titlebar{background:linear-gradient(120deg,var(--title1),var(--title2));color:#fff;
+       padding:12px 26px 10px;border-bottom:1px solid #27407a;}
+  .titlebar h1{font-size:21px;font-weight:700;letter-spacing:1px;}
+  .titlebar h1 em{font-style:normal;color:var(--gold);}
+  .titlebar p{font-size:12px;opacity:.88;color:#a9c2ee;margin-top:4px;line-height:1.6;}
+  .stage{padding:12px 20px 18px;}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+  .ftab{border:1px solid #33589e;background:#152a55;color:#cfe0ff;border-radius:9px;
+       padding:7px 14px;font-size:14.5px;font-weight:800;cursor:pointer;font-family:'Cambria Math','Times New Roman',serif;
+       transition:all .15s;}
+  .ftab.on{background:linear-gradient(120deg,#c98a1e,#ff9f2e);color:#1a1000;border-color:#ffbf5e;}
+  .ftab:hover{filter:brightness(1.12);}
+  canvas#cv{width:100%;border-radius:10px;background:radial-gradient(circle at 50% 42%,#12285a,#060f22 80%);
+       border:1px solid #1c3a72;display:block;}
+  .scrub{display:flex;align-items:center;gap:12px;padding:10px 4px 2px;flex-wrap:wrap;}
+  .scrub .lab{font-size:12px;color:#8fb4f5;white-space:nowrap;}
+  input[type=range]{flex:1;min-width:160px;height:6px;border-radius:3px;-webkit-appearance:none;appearance:none;
+       background:linear-gradient(90deg,#27407a,#67b0f6);outline:none;cursor:ew-resize;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:19px;height:19px;border-radius:50%;
+       background:var(--gold);border:3px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.5);cursor:grab;}
+  .curval{min-width:170px;text-align:center;font-size:13px;font-weight:700;color:var(--gold);
+       background:#0a1a38;border:1px solid #2c4a84;border-radius:9px;padding:6px 8px;}
+  .btn{border:none;padding:11px 18px;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;transition:all .15s;}
+  .btn.play{background:linear-gradient(120deg,#2a5191,#1e3a6e);color:#fff;}
+  .btn:hover{filter:brightness(1.12);}
+  .info{margin-top:10px;border-radius:12px;padding:12px 16px;font-size:13.5px;line-height:2;
+       background:#0f2148;border:1px solid #33589e;}
+  .info .head{font-size:15px;color:var(--gold);font-weight:800;font-family:'Cambria Math','Times New Roman',serif;}
+  .info .key{color:#7ef0b6;}
+  .exy{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px;}
+  .exy div{background:#081229;border:1px solid #27407a;border-radius:8px;padding:6px 10px;font-size:12.5px;}
+  .exy div span{color:#8fb4f5;} .exy div b{color:#d7e3ff;font-weight:700;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="titlebar">
+    <h1>几类反函数 <em>· 动态图形</em></h1>
+    <p>互为反函数的函数对同图展示：<b>指数↔对数（底e）、三角↔反三角</b>。<b>蓝色 = 原函数</b>，<b>橙色 = 它的反函数</b>；金色值域带标出反函数值域（实线=闭区间，虚线=渐近线）。▷ 播放/滑块让金点沿反函数扫描。</p>
+  </div>
+
+  <div class="stage">
+    <div class="tabs" id="tabBar"></div>
+    <canvas id="cv" width="940" height="430"></canvas>
+    <div class="scrub">
+      <span class="lab">扫描 x</span>
+      <input type="range" id="scrub" min="0" max="100" step="1" value="55">
+      <span class="curval" id="curVal">(x, f(x)) = —</span>
+      <button class="btn play" id="playBtn">▶ 播放动画</button>
+    </div>
+    <div class="info" id="info"></div>
+  </div>
+</div>
+<script>"use strict";
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const f3 = v => String(+v.toFixed(3));
+const f2 = v => String(+v.toFixed(2));
+const PI2 = Math.PI / 2;
+
+const FNC = [
+  { name:"指数 ↔ 对数（底 e）",
+    main:{ f: x => Math.exp(x), col:"#67b0f6", lab:"y = eˣ", clip:null },
+    inv:{ f: Math.log, col:"#ff9f2e", lab:"y = ln x", dm:[0.06,3.8] },
+    xr:[-4.6,4.6], yr:[-4.6,4.6], band:null, symYx:true,
+    bandTxt:"互为反函数 → 关于直线 y = x 对称",
+    hint:"底 e：eˣ 与 ln x 互为反函数，图像关于直线 y=x 对称（虚线）。eˣ 过 (0,1)、值域 (0,+∞)；ln x 过 (1,0)、定义域 (0,+∞)，x→0⁺ 坠向 −∞。",
+    at:[["eˣ 定义域","ℝ"],["eˣ 值域","(0, +∞)"],["ln 定义域","(0, +∞)"],["ln 值域","ℝ"]] },
+  { name:"正弦 ↔ 反正弦",
+    main:{ f: Math.sin, col:"#67b0f6", lab:"y = sin x", clip:null },
+    inv:{ f: Math.asin, col:"#ff9f2e", lab:"y = arcsin x", dm:[-1,1],
+          ends:[{x:-1,y:-PI2},{x:1,y:PI2}] },
+    xr:[-7.3,7.3], yr:[-2.3,2.3],
+    xmark:[-1,1],
+    mainSeg:{ dm:[-PI2,PI2], col:"#42e3cc", lab:"sin 单调段" },
+    segTicks:[[-PI2,"−π/2"],[PI2,"π/2"]],
+    segRect:{ x:[-PI2,PI2], y:[-1,1], lab:"该段值域 [−1, 1]" },
+    band:[-PI2,PI2], bOpen:[false,false],
+    bandTxt:"反三角值域 [−π/2, π/2] ≈ [−1.57, 1.57]",
+    hint:"蓝色=sin x 全图（周期振荡、值域 [−1,1]）；橙色=arcsin x 只定义在 x∈[−1,1]。反函数关系由 sin 的单调段 [−π/2, π/2] 得到。",
+    at:[["sin 定义域","ℝ"],["sin 值域","[−1, 1]"],["arcsin 定义域","[−1, 1]"],["arcsin 值域","[−π/2, π/2]"]] },
+  { name:"余弦 ↔ 反余弦",
+    main:{ f: Math.cos, col:"#67b0f6", lab:"y = cos x", clip:null },
+    inv:{ f: Math.acos, col:"#ff9f2e", lab:"y = arccos x", dm:[-1,1],
+          ends:[{x:-1,y:Math.PI},{x:1,y:0}] },
+    xr:[-7.3,7.3], yr:[-0.6,4.0],
+    xmark:[-1,1],
+    mainSeg:{ dm:[0,Math.PI], col:"#42e3cc", lab:"cos 单调段" },
+    segTicks:[[0,"0"],[Math.PI,"π"]],
+    segRect:{ x:[0,Math.PI], y:[-1,1], lab:"该段值域 [−1, 1]" },
+    band:[0,Math.PI], bOpen:[false,false],
+    bandTxt:"反三角值域 [0, π] ≈ [0, 3.14]",
+    hint:"蓝色=cos x 全图（周期振荡）；橙色=arccos x 单调递减、只定义在 [−1,1]。反函数关系由 cos 的递减段 [0, π] 得到。",
+    at:[["cos 定义域","ℝ"],["cos 值域","[−1, 1]"],["arccos 定义域","[−1, 1]"],["arccos 值域","[0, π]"]] },
+  { name:"正切 ↔ 反正切",
+    main:{ f: Math.tan, col:"#67b0f6", lab:"y = tan x", clip:6, vlines:[-4.712,-1.571,1.571,4.712] },
+    inv:{ f: Math.atan, col:"#ff9f2e", lab:"y = arctan x", dm:[-6,6], ends:[] },
+    xr:[-6.6,6.6], yr:[-5.2,5.2],
+    mainSeg:{ dm:[-PI2,PI2], col:"#42e3cc", lab:"tan 单调段" },
+    segTicks:[{x:-PI2,lab:"−π/2",dash:true},{x:PI2,lab:"π/2",dash:true}],
+    segNote:"该单调段取值覆盖全部实数：值域 ℝ",
+    band:[-PI2,PI2], bOpen:[true,true],
+    bandTxt:"反三角值域 (−π/2, π/2)（两边渐近虚线）",
+    hint:"蓝色=tan x 全图（每 π 一段冲上天，x=π/2+kπ 为竖直渐近线，顶部切齐显示）；橙色=arctan x 全域单调上升，被 y=±π/2 夹住。",
+    at:[["tan 定义域","ℝ∖{kπ+π/2}"],["tan 值域","ℝ"],["arctan 定义域","ℝ"],["arctan 值域","(−π/2, π/2)"]] },
+  { name:"余切 ↔ 反余切",
+    main:{ f: x => Math.cos(x)/Math.sin(x), col:"#67b0f6", lab:"y = cot x", clip:6, vlines:[-6.283,-3.142,0,3.142,6.283] },
+    inv:{ f: x => PI2 - Math.atan(x), col:"#ff9f2e", lab:"y = arccot x", dm:[-6,6], ends:[] },
+    xr:[-6.6,6.6], yr:[-4.3,7.3],
+    mainSeg:{ dm:[1e-4, Math.PI-1e-4], col:"#42e3cc", lab:"cot 单调段" },
+    segTicks:[{x:0.03,lab:"0",dash:true},{x:Math.PI-0.03,lab:"π",dash:true}],
+    segNote:"该单调段取值覆盖全部实数：值域 ℝ",
+    band:[0,Math.PI], bOpen:[true,true],
+    bandTxt:"反三角值域 (0, π)（两边渐近虚线）",
+    hint:"蓝色=cot x 全图（周期 π，x=kπ 为竖直渐近线，各段下降，顶部切齐显示）；橙色=arccot x = π/2−arctan x 单调递减。",
+    at:[["cot 定义域","ℝ∖{kπ}"],["cot 值域","ℝ"],["arccot 定义域","ℝ"],["arccot 值域","(0, π)"]] }
+];
+const state = { fi:0, t:0.55, playing:false, token:null };
+const CV = $("cv"), ct = CV.getContext("2d");
+const W = CV.width, H = CV.height;
+const P = { l:60, r:28, t:30, b:42 };
+const pw = W-P.l-P.r, ph = H-P.t-P.b;
+const C = () => FNC[state.fi];
+const x2 = x => P.l + (x - C().xr[0])/(C().xr[1]-C().xr[0])*pw;
+const y2 = v => P.t + (C().yr[1]-v)/(C().yr[1]-C().yr[0])*ph;
+function arrowTri(x1,y1,x2,y2,col){
+  const ang = Math.atan2(y2-y1,x2-x1);
+  ct.fillStyle = col; ct.strokeStyle = col;
+  ct.beginPath(); ct.moveTo(x2,y2);
+  ct.lineTo(x2-10*Math.cos(ang-0.4), y2-10*Math.sin(ang-0.4));
+  ct.lineTo(x2-10*Math.cos(ang+0.4), y2-10*Math.sin(ang+0.4));
+  ct.closePath(); ct.fill();
+}function draw() {
+  const c = C();
+  const [x0, x1] = c.xr, [lo, hi] = c.yr;
+  ct.clearRect(0, 0, W, H);
+  const bg = ct.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#0e2148"); bg.addColorStop(1, "#081229");
+  ct.fillStyle = bg; ct.fillRect(0, 0, W, H);
+  /* 值域色带 + 边界线（band 可能为 null，如指数/对数无界） */
+  if (c.band) {
+    const by1 = y2(c.band[0]), by2 = y2(c.band[1]);
+    ct.fillStyle = "rgba(255,210,61,.10)";
+    ct.fillRect(P.l, Math.min(by1, by2), pw, Math.abs(by2 - by1));
+    [[c.band[0], c.bOpen[0] ? "渐近线 y = " : "值域下界 y = "],
+     [c.band[1], c.bOpen[1] ? "渐近线 y = " : "值域上界 y = "]
+    ].forEach(([v, txt], idx) => {
+      const ty = y2(v);
+      ct.strokeStyle = "#ffd23d"; ct.lineWidth = 2;
+      if (c.bOpen[idx]) ct.setLineDash([8, 6]);
+      ct.beginPath(); ct.moveTo(P.l, ty); ct.lineTo(P.l + pw, ty); ct.stroke();
+      ct.setLineDash([]);
+      ct.fillStyle = "#ffd23d"; ct.font = "bold 11.5px 'Cambria Math'";
+      ct.textAlign = "right"; ct.textBaseline = idx ? "bottom" : "top";
+      ct.fillText(txt + (Math.abs(v) < 1e-12 ? "0" : (Math.abs(Math.abs(v) - PI2) < 1e-12 ? "±π/2" : "π")),
+                  P.l + pw - 6, ty + (idx ? -6 : 6));
+    });
+  }
+  /* 主函数单调段的取值矩形（值域可视化：sin/cos 用带，tan/cot 用文字） */
+  if (c.segRect) {
+    const r = c.segRect;
+    const rx0 = x2(r.x[0]), rx1 = x2(r.x[1]);
+    const ry0 = y2(r.y[0]), ry1 = y2(r.y[1]);
+    const my = Math.min(ry0, ry1), mh = Math.abs(ry1 - ry0);
+    ct.fillStyle = "rgba(66,227,204,.08)";
+    ct.fillRect(rx0, my, rx1 - rx0, mh);
+    ct.strokeStyle = "rgba(66,227,204,.7)"; ct.setLineDash([6, 4]); ct.lineWidth = 1.2;
+    ct.strokeRect(rx0, my, rx1 - rx0, mh);
+    ct.setLineDash([]);
+    ct.fillStyle = "#42e3cc"; ct.font = "bold 11.5px 'PingFang SC'";
+    ct.textAlign = "center"; ct.textBaseline = "bottom";
+    ct.fillText(r.lab, (rx0 + rx1) / 2, my - 4);
+  }
+  if (c.segNote && c.mainSeg) {
+    const mid = (c.mainSeg.dm[0] + c.mainSeg.dm[1]) / 2;
+    const gx = x2(mid);
+    ct.font = "bold 12px 'PingFang SC'";
+    const tw = (ct.measureText ? ct.measureText(c.segNote).width : c.segNote.length * 13) + 12;
+    ct.fillStyle = "rgba(6,14,32,.85)";
+    ct.beginPath(); ct.roundRect ? ct.roundRect(gx - tw / 2, P.t + 66, tw, 22, 8) : ct.rect(gx - tw / 2, P.t + 66, tw, 22); ct.fill();
+    ct.fillStyle = "rgba(66,227,204,.95)";
+    ct.textAlign = "center"; ct.textBaseline = "bottom";
+    ct.fillText(c.segNote, gx, P.t + 86);
+  }
+  /* y = x 对称参考线（指数/对数等） */
+  if (c.symYx) {
+    const xa = Math.max(x0, lo), xb = Math.min(x1, hi);
+    ct.strokeStyle = "rgba(232,239,249,.28)"; ct.globalAlpha = .7;
+    ct.setLineDash([6, 5]); ct.lineWidth = 1.4;
+    ct.beginPath(); ct.moveTo(x2(xa), y2(xa)); ct.lineTo(x2(xb), y2(xb)); ct.stroke();
+    ct.setLineDash([]); ct.globalAlpha = 1;
+    ct.fillStyle = "#a9c2ee"; ct.font = "bold 11.5px 'Cambria Math'";
+    ct.textAlign = "right"; ct.textBaseline = "bottom";
+    ct.fillText("y = x", x2(xb), y2(xb) - 4);
+  }
+  /* 网格 */
+  ct.strokeStyle = "rgba(120,170,255,.12)"; ct.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const yy = P.t + ph * i / 4;
+    ct.beginPath(); ct.moveTo(P.l, yy); ct.lineTo(P.l + pw, yy); ct.stroke();
+  }
+  /* 坐标轴 */
+  const hasX = lo < 0 && hi > 0, hasY = x0 < 0 && x1 > 0;
+  if (hasY) {
+    const ax = x2(0);
+    ct.strokeStyle = "rgba(255,255,255,.55)"; ct.lineWidth = 1.6;
+    ct.beginPath(); ct.moveTo(ax, P.t + ph); ct.lineTo(ax, P.t + 4); ct.stroke();
+    arrowTri(ax, P.t + 4, ax, P.t - 2, "rgba(255,255,255,.7)");
+    ct.fillStyle = "#d7e3ff"; ct.font = "bold 13px 'Cambria Math'";
+    ct.textAlign = "left"; ct.textBaseline = "bottom";
+    ct.fillText("y", ax + 5, P.t - 2);
+  }
+  if (hasX) {
+    const ay = y2(0);
+    ct.strokeStyle = "rgba(79,195,247,.95)"; ct.lineWidth = 2.1;
+    ct.beginPath(); ct.moveTo(P.l, ay); ct.lineTo(P.l + pw - 4, ay); ct.stroke();
+    arrowTri(P.l + pw - 4, ay, P.l + pw + 2, ay, "rgba(79,195,247,.95)");
+    ct.fillStyle = "#9bd7ff"; ct.font = "bold 13px 'Cambria Math'";
+    ct.textAlign = "left"; ct.textBaseline = "bottom";
+    ct.fillText("x", P.l + pw + 7, ay - 3);
+  }
+  /* 刻度 */
+  ct.fillStyle = "#7f93b8"; ct.font = "10.5px 'Segoe UI'";
+  ct.textAlign = "right"; ct.textBaseline = "middle";
+  for (const v of [hi, lo]) ct.fillText(f2(v), P.l - 6, y2(v));
+  ct.textAlign = "center"; ct.textBaseline = "top";
+  const stepX = (x1 - x0) / 4;
+  for (let i = 0; i <= 4; i++) ct.fillText(f2(x0 + stepX * i), x2(x0 + stepX * i), P.t + ph + 6);
+  /* 竖直渐近线（tan/cot） */
+  if (c.vlines) c.vlines.forEach(v => {
+    const gx = x2(v);
+    ct.strokeStyle = "rgba(103,176,246,.35)"; ct.setLineDash([5, 4]); ct.lineWidth = 1.3;
+    ct.beginPath(); ct.moveTo(gx, P.t + 4); ct.lineTo(gx, P.t + ph); ct.stroke();
+    ct.setLineDash([]);
+  });
+  /* x 轴上反三角定义域端点标记（x = ±1 等） */
+  if (c.xmark) c.xmark.forEach(v => {
+    const gx = x2(v);
+    ct.strokeStyle = "#ffd23d"; ct.lineWidth = 2;
+    ct.beginPath(); ct.moveTo(gx, y2(0) - 7); ct.lineTo(gx, y2(0) + 7); ct.stroke();
+    ct.fillStyle = "#ffd23d"; ct.font = "bold 12px 'Cambria Math'";
+    ct.textAlign = "center"; ct.textBaseline = "top";
+    ct.fillText("x = " + (v === -1 ? "−1" : v === 1 ? "1" : String(v)), gx, y2(0) + 9);
+  });
+  /* 主函数单调段在 x 轴的端点标记（青色；dash 项附带贯穿竖虚线） */
+  if (c.segTicks) c.segTicks.forEach(it => {
+    const v = Array.isArray(it) ? it[0] : it.x;
+    const lab = Array.isArray(it) ? it[1] : it.lab;
+    const dash = Array.isArray(it) ? false : !!it.dash;
+    const gx = x2(v);
+    if (dash) {
+      ct.strokeStyle = "rgba(66,227,204,.5)"; ct.setLineDash([8, 5]); ct.lineWidth = 1.6;
+      ct.beginPath(); ct.moveTo(gx, P.t + 4); ct.lineTo(gx, P.t + ph); ct.stroke();
+      ct.setLineDash([]);
+    }
+    ct.strokeStyle = "rgba(66,227,204,.95)"; ct.lineWidth = 2.4;
+    ct.beginPath(); ct.moveTo(gx, y2(0) - 9); ct.lineTo(gx, y2(0) + 9); ct.stroke();
+    ct.font = "bold 12px 'Cambria Math'";
+    const tx = "x = " + lab;
+    const tw = (ct.measureText ? ct.measureText(tx).width : tx.length * 8) + 8;
+    ct.fillStyle = "rgba(6,14,32,.88)";
+    ct.fillRect(gx - tw / 2, y2(0) + 24, tw, 17);
+    ct.fillStyle = "#42e3cc";
+    ct.textAlign = "center"; ct.textBaseline = "top";
+    ct.fillText(tx, gx, y2(0) + 27);
+  });
+  /* 主曲线：普通部分蓝色 + 单调段高亮 */
+  if (c.main) {
+    if (c.mainSeg) {
+      const [sa, sb] = c.mainSeg.dm;
+      plotCurve(c.main, c.main.col, [c.xr[0], Math.max(c.xr[0], sa - 0.01)], c.main.clip);
+      plotCurve(c.main, c.mainSeg.col, [sa, sb], c.main.clip);
+      plotCurve(c.main, c.main.col, [Math.min(c.xr[1], sb + 0.01), c.xr[1]], c.main.clip);
+    } else {
+      plotCurve(c.main, c.main.col, c.main.dm || c.xr, c.main.clip);
+    }
+  }
+  /* 反函数曲线（橙，完整 + 端点） */
+  plotCurve(c.inv, c.inv.col, c.inv.dm, null);
+  if (c.inv.ends) c.inv.ends.forEach(e => {
+    ct.fillStyle = "#ff9f2e";
+    ct.beginPath(); ct.arc(x2(e.x), y2(e.y), 5, 0, 6.283); ct.fill();
+    ct.strokeStyle = "#fff"; ct.lineWidth = 1.8; ct.stroke();
+  });
+  /* 金点沿反函数扫描 */
+  const [da, db] = c.inv.dm;
+  const xp = da + (db - da) * state.t;
+  const vx = c.inv.f(xp);
+  if (isFinite(vx)) {
+    const px = x2(xp), py = y2(vx), pulse = 1 + 0.1 * Math.sin(state.t * 30);
+    ct.fillStyle = "#ffd23d";
+    ct.beginPath(); ct.arc(px, py, 6.5 * pulse, 0, 6.283); ct.fill();
+    ct.strokeStyle = "#fff"; ct.lineWidth = 2; ct.stroke();
+    ct.setLineDash([4, 3]); ct.strokeStyle = "rgba(255,210,61,.55)"; ct.lineWidth = 1;
+    ct.beginPath(); ct.moveTo(px, P.t + 4); ct.lineTo(px, P.t + ph - 4); ct.stroke();
+    ct.setLineDash([]);
+    $("curVal").textContent = c.inv.lab.replace("y = ", "") + ": x = " + f3(xp) + " → " + f3(vx) + (c.band ? "（在值域带内）" : "");
+  } else $("curVal").textContent = "x = " + f3(xp);
+  /* 顶部标签 */
+  ct.fillStyle = "#d7e3ff"; ct.font = "bold 15px 'Cambria Math'";
+  ct.textAlign = "left"; ct.textBaseline = "top";
+  ct.fillText(c.name + "　（" + c.bandTxt + "）", P.l, P.t);
+}
+function plotCurve(fn_, col, rngX, clip) {
+  const N = 900;
+  const [a, b] = rngX, [lo, hi] = C().yr;
+  const inY = v => v > (lo - 12) && v < (hi + 12);
+  ct.strokeStyle = col; ct.lineWidth = 2.6; ct.lineJoin = "round";
+  ct.beginPath();
+  let pen = false, lastV = null;
+  for (let i = 0; i <= N; i++) {
+    const x = a + (b - a) * i / N;
+    const v = fn_.f(x);
+    const ok = isFinite(v) && inY(v) && (clip === null || Math.abs(v) <= clip);
+    if (ok) {
+      const sx = x2(x), sy = y2(v);
+      const gap = pen && Math.abs(v - lastV) > (hi - lo) * 0.55;
+      if (pen && !gap) ct.lineTo(sx, sy); else { pen = true; ct.moveTo(sx, sy); }
+      lastV = v;
+    } else pen = false;
+  }
+  ct.stroke();
+}
+function legend(c) {
+  const items = [];
+  if (c.mainSeg) items.push([c.mainSeg.col, c.mainSeg.lab || "单调段"]);
+  if (c.main) items.push([c.main.col, c.main.lab]);
+  items.push([c.inv.col, c.inv.lab]);
+  const lx = P.l + pw - 252, rw = 244;
+  items.forEach(([col, lab], i) => {
+    const ly = P.t + 12 + i * 24;
+    ct.fillStyle = "rgba(8,18,41,.72)";
+    ct.beginPath(); ct.roundRect ? ct.roundRect(lx, ly, rw, 22, 8) : ct.rect(lx, ly, rw, 22); ct.fill();
+    ct.strokeStyle = col; ct.lineWidth = 3;
+    ct.beginPath(); ct.moveTo(lx + 10, ly + 11); ct.lineTo(lx + 40, ly + 11); ct.stroke();
+    ct.fillStyle = "#d7e3ff"; ct.font = "bold 12.5px 'Cambria Math'";
+    ct.textAlign = "left"; ct.textBaseline = "middle";
+    ct.fillText(lab, lx + 48, ly + 12);
+  });
+}function updateInfo() {
+  const c = C();
+  const segs = [];
+  if (c.mainSeg) segs.push(["■ " + c.mainSeg.lab, "#42e3cc"]);
+  if (c.main) segs.push(["■ " + c.main.lab, "#67b0f6"]);
+  segs.push(["■ " + c.inv.lab, "#ff9f2e"]);
+  const leg = segs.map(s => "<span style='color:" + s[1] + ";font-weight:800'>" + s[0] + "</span>").join("<span style='color:#8fa3c4'>　|　</span>");
+  const rows = c.at.map(a => "<div><span>" + a[0] + "：</span><b>" + a[1] + "</b></div>").join("");
+  $("info").innerHTML =
+    "<div style='font-size:12.5px;line-height:1.9;margin-bottom:4px;border-bottom:1px dashed #27407a;padding-bottom:4px'>图例：" + leg + "</div>" +
+    "<span class='head'>" + c.name + "</span>　<span class='key'>" + c.hint + "</span>" +
+    "<div class='exy'>" + rows + "</div>";
+}
+function syncScrub() {
+  const s = $("scrub"), v = Math.round(state.t * 100);
+  if (s.value != v) s.value = v;
+}
+function stopPlay() {
+  if (state.token) { state.token.stop = true; state.token = null; }
+  state.playing = false;
+  $("playBtn").textContent = "▶ 播放动画";
+}
+async function play() {
+  if (state.playing) return;
+  state.playing = true; state.t = 0;
+  const token = { stop: false }; state.token = token;
+  const b = $("playBtn"); b.textContent = "■ 停止";
+  const dur = 3400, t0 = performance.now();
+  while (state.t < 1) {
+    if (token.stop) break;
+    state.t = Math.min(1, (performance.now() - t0) / dur);
+    draw(); syncScrub();
+    await sleep(28);
+  }
+  state.playing = false; token.stop = false; state.token = null;
+  b.textContent = "▶ 重新播放";
+}
+$("scrub").addEventListener("input", e => {
+  if (state.playing) stopPlay();
+  state.t = parseInt(e.target.value, 10) / 100;
+  draw();
+});
+$("playBtn").addEventListener("click", () => {
+  if (state.playing) { state.token && (state.token.stop = true); }
+  else play();
+});
+function buildTabs() {
+  const bar = $("tabBar");
+  bar.innerHTML = "";
+  FNC.forEach((c, i) => {
+    const b = document.createElement("button");
+    b.className = "ftab" + (i === state.fi ? " on" : "");
+    b.textContent = c.name;
+    b.addEventListener("click", () => {
+      if (state.playing) stopPlay();
+      state.fi = i; state.t = 0.55;
+      buildTabs(); draw(); syncScrub(); updateInfo();
+    });
+    bar.appendChild(b);
+  });
+}
+/* ---------- 初始化 ---------- */
+buildTabs();
+draw(); syncScrub(); updateInfo();
+</script>
+</body>
+</html>
